@@ -1,0 +1,22 @@
+nvidia/nemotron-3-super-120b-a12b             plain   HTTP 404 b'{"status":404,"title":"Not Found","detail":"Function \'ac74040f-9fc9-4c5e-ac74-279ba5161d69\': Not found for account \'ZMTg'
+nvidia/nemotron-3-super-120b-a12b             kwargs  HTTP 404 b'{"status":404,"title":"Not Found","detail":"Function \'ac74040f-9fc9-4c5e-ac74-279ba5161d69\': Not found for account \'ZMTg'
+nvidia/nemotron-3-ultra-550b-a55b             plain     1.3s reasoning_field=  256 think_tags=False answer='The ball costs $0.05 (five cents).'
+nvidia/nemotron-3-ultra-550b-a55b             kwargs    1.5s reasoning_field=  256 think_tags=False answer='The ball costs $0.05 (five cents).'
+nvidia/nemotron-3.5-lightning-30b-a3b         plain     3.2s reasoning_field= 1059 think_tags=False answer='The ball costs 5 cents.'
+nvidia/nemotron-3.5-lightning-30b-a3b         kwargs    7.4s reasoning_field= 1155 think_tags=False answer='The ball costs 5 cents.'
+z-ai/glm-5.3                                  plain    12.4s reasoning_field=  332 think_tags=False answer='The ball costs $0.05 (5 cents), since the bat at $1.05 plus the ball a'
+z-ai/glm-5.3                                  kwargs    4.5s reasoning_field=  395 think_tags=False answer='The ball costs $0.05 (five cents), since if the ball were $0.10, the b'
+z-ai/glm-5.3-flash                            plain   104.7s reasoning_field=  529 think_tags=False answer='The ball costs $0.05, because if it cost $0.10 the bat would be $1.10 '
+z-ai/glm-5.3-flash                            kwargs   89.7s reasoning_field=  382 think_tags=False answer='The ball costs $0.05, because then the bat costs $1.05, and together t'
+google/gemma-4-31b-it                         plain    44.0s reasoning_field=    0 think_tags=False answer='The ball costs $0.05.'
+google/gemma-4-31b-it                         kwargs   25.9s reasoning_field=  491 think_tags=False answer='The ball costs 5 cents.'
+openai/gpt-oss-20b                            plain     3.4s reasoning_field=  292 think_tags=False answer='The ball costs five cents.'
+openai/gpt-oss-20b                            kwargs    5.9s reasoning_field=  407 think_tags=False answer='The ball costs 5\u202fcents.'
+meta/muse-glimmer-30b                         plain     7.0s reasoning_field=  857 think_tags=False answer='The ball costs $0.05.'
+meta/muse-glimmer-30b                         kwargs    5.5s reasoning_field=  748 think_tags=False answer='The ball costs $0.05.'
+deepseek-ai/deepseek-v4.1-flash               plain   error The read operation timed out
+deepseek-ai/deepseek-v4.1-flash               kwargs  error The read operation timed out
+meta/llama-3.2-90b-vision-instruct            plain   error The read operation timed out
+meta/llama-3.2-90b-vision-instruct            kwargs  error The read operation timed out
+meta/llama-3.2-11b-vision-instruct            plain     5.5s reasoning_field=    0 think_tags=False answer="Let's call the cost of the ball x, then the bat costs x + $1.00, so we"
+meta/llama-3.2-11b-vision-instruct            kwargs    1.8s reasoning_field=    0 think_tags=False answer="To find the cost of the ball, let's subtract the $1.00 difference from"

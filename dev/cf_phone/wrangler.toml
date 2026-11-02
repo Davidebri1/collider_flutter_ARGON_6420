@@ -1,0 +1,18 @@
+# Made by Claude (2026-10-21). The phone link that never changes: https://collider-phone.ebridavid.workers.dev/<key>
+# forwards to wherever Collider is running now (its Cloudflare tunnel's address changes each time it starts; Collider
+# tells this Worker the new one). Without the key it answers nothing. The key is the secret PHONE_KEY and lives in
+# data\collider_config.json beside Collider.exe, never in this folder.
+name = "collider-phone"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+account_id = "2699adb1984283a8486bc169c8376a21"
+workers_dev = true
+preview_urls = false
+
+[[kv_namespaces]]
+binding = "COLLIDER_PHONE"
+id = "8adb124b3408401ebf36754e144b5a85"
+
+# Claude, 2026-10-23: a visit every ten minutes keeps Collider online awake (see scheduled() in src/index.js).
+[triggers]
+crons = ["*/10 * * * *"]

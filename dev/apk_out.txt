@@ -1,0 +1,1 @@
+EXIT 1 log: C:\Users\D\Documents\collider_flutter_CLAUDE_20261020\dev\flutter_cmd_log.txt

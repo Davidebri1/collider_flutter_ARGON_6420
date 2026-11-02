@@ -1,0 +1,12 @@
+# Made by Claude (2026-10-21). Collider's pictures through Cloudflare Workers AI, on David's own Cloudflare account
+# (10,000 neurons a day at no charge). Only Collider's server can use it: it must send the key set as the secret
+# COLLIDER_KEY (kept in data\collider_config.json beside Collider.exe, never in this folder).
+name = "collider-imagine"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+account_id = "2699adb1984283a8486bc169c8376a21"
+workers_dev = true
+preview_urls = false
+
+[ai]
+binding = "AI"

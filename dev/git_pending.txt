@@ -1,0 +1,89 @@
+ M .gitignore
+ M dev/build_exe.py
+ M dev/build_log.txt
+ M dev/build_out.txt
+ M dev/exe/Collider.spec
+ M dev/exe/dist/Collider.exe
+ M dev/exe/web/flutter_bootstrap.js
+ M dev/exe/web/main.dart.js
+ M dev/exe/work/Collider/Analysis-00.toc
+ M dev/exe/work/Collider/Collider.pkg
+ M dev/exe/work/Collider/EXE-00.toc
+ M dev/exe/work/Collider/PKG-00.toc
+ M dev/exe/work/Collider/PYZ-00.pyz
+ M dev/exe/work/Collider/PYZ-00.toc
+ M dev/exe/work/Collider/base_library.zip
+ M dev/exe/work/Collider/warn-Collider.txt
+ M dev/exe/work/Collider/xref-Collider.html
+ M dev/exe_log.txt
+ M dev/publish_out.txt
+ M docs/INTENT.md
+ M lib/core/api/collider_api.dart
+ M lib/core/media/theme_blur_cache.dart
+ M lib/core/platform/open_url_stub.dart
+ M lib/core/platform/open_url_web.dart
+ M lib/features/browser/screens/in_app_browser_sheet.dart
+ M lib/features/browser/web_frame_web.dart
+ M lib/features/drawers/settings_drawer.dart
+ M lib/features/files/screens/files_screen.dart
+ M lib/features/market/screens/market_screen.dart
+ M lib/features/nav/contextual_side_nav.dart
+ M lib/features/prompt/floating_prompt.dart
+ M lib/features/theme/premium_theme_market_view.dart
+ M lib/main.dart
+ M lib/models/model_def.dart
+ M tools/collider_app.py
+ M tools/collider_config.py
+ M tools/collider_imagine.py
+ M tools/collider_server.py
+?? dev/cf_deploy_out.txt
+?? dev/cf_imagine/src/index.js
+?? dev/cf_imagine/wrangler.toml
+?? dev/cf_imagine_key.py
+?? dev/cf_kv_out.txt
+?? dev/cf_phone/src/index.js
+?? dev/cf_phone/wrangler.toml
+?? dev/cf_phone_key.py
+?? dev/draft/browser_sidebar.dart
+?? dev/draft/launch_style.css
+?? dev/edit_round10.py
+?? dev/edit_round11.py
+?? dev/edit_round12.py
+?? dev/edit_round13.py
+?? dev/edit_round14.py
+?? dev/edit_round15.py
+?? dev/edit_round16.py
+?? dev/edit_round17.py
+?? dev/edit_round18.py
+?? dev/edit_round19.py
+?? dev/editor/phone_tour5.cmd
+?? dev/editor/phone_tour6.cmd
+?? dev/editor/phone_tour7.cmd
+?? dev/editor/phone_tour8.cmd
+?? dev/editor/phone_tour9.cmd
+?? dev/editor/tour5_log.txt
+?? dev/editor/tour6_log.txt
+?? dev/editor/tour7_log.txt
+?? dev/editor/tour8_log.txt
+?? dev/editor/tour9_log.txt
+?? dev/find_cf.py
+?? dev/git_pending.txt
+?? dev/make_phone_app.py
+?? dev/phone_link.txt
+?? dev/phone_server_log.txt
+?? dev/probe_cf_502.py
+?? dev/probe_thinking.py
+?? dev/probe_thinking_out.txt
+?? dev/shot_launch.py
+?? dev/test_imagine.py
+?? dev/test_phone_link.py
+?? dev/test_phone_relay.py
+?? dev/test_pictures.py
+?? dev/test_pictures_out.txt
+?? dev/test_server_log.txt
+?? dev/test_thinking_job.py
+?? dev/test_thinking_out.txt
+?? lib/features/browser/browser_store.dart
+?? lib/features/media/generations_pane.dart
+?? lib/features/media/picture_viewer.dart
+?? tools/collider_tunnel.py

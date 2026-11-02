@@ -1,0 +1,9 @@
+# Made by Claude (2026-10-23). Collider online on Render's free plan: its server, built from dev/space/Dockerfile.
+# The app's web build and Collider's data come from David's Cloudflare R2 at start (dev/space/start.py); nothing to fill in.
+services:
+  - type: web
+    name: collider
+    runtime: docker
+    plan: free
+    dockerfilePath: ./dev/space/Dockerfile
+    dockerContext: .

@@ -1,0 +1,21 @@
+git add -A -> 0 ', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dev/pub_try.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'dev/run_collider_detached.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/core/drafts.dart', LF will be replaced by CRLF the next time Git touches it
+git diff --cached -> 0 ets/local_history_pane.dart
+lib/features/ticker/widgets/message_zoom_overlay.dart
+lib/features/ticker/widgets/model_pill.dart
+lib/features/ticker/widgets/research_document.dart
+lib/features/upgrade/screens/upgrade_screen.dart
+lib/features/wallpaper/widgets/windowless_theme_scroller.dart
+lib/main.dart
+lib/models/model_def.dart
+pubspec.lock
+pubspec.yaml
+test/widget_test.dart
+tools/collider_tunnel.py
+git -c user.name=Claude -> 0 
+git push origin -> 0 To https://github.com/Davidebri1/collider-flutter-claude.git
+   b34858d..80a3d49  main -> main
+gh release create -> 0 https://github.com/Davidebri1/collider-flutter-claude/releases/tag/build-20261021-2047
+PUBLISHED

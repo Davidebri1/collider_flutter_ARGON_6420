@@ -1,0 +1,65 @@
+frames http://127.0.0.1:63547/
+errors []
+frames http://127.0.0.1:63547/
+errors []
+frames http://127.0.0.1:63547/ | http://127.0.0.1:63547/assets/assets/html/claude_documents.html
+errors []
+frames http://127.0.0.1:63547/
+errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)"]
+frames http://127.0.0.1:63547/
+errors []
+frames http://127.0.0.1:63547/
+errors []
+frames http://127.0.0.1:63547/
+errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)"]
+frames http://127.0.0.1:63547/ | http://127.0.0.1:63547/api/page?url=https%3A%2F%2Fwww.google.com%2F
+errors ["console: Failed to load resource: the server responded with a status of 403 (Forbidden)","console: Failed to load resource: the server responded with a status of 400 (Bad Request)"]
+frames http://127.0.0.1:63547/
+errors []
+frames http://127.0.0.1:63547/
+errors []
+frames http://127.0.0.1:63547/
+errors []
+frames http://127.0.0.1:63547/
+errors []
+TOUR DONE 
+frames http://127.0.0.1:63547/
+errors ["console: Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."]
+frames http://127.0.0.1:63547/
+errors ["console: Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."]
+frames http://127.0.0.1:63547/
+errors ["console: Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."]
+frames http://127.0.0.1:63547/
+errors []
+TOUR2 DONE 
+frames http://127.0.0.1:49978/
+errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)"]
+frames http://127.0.0.1:49978/
+errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)"]
+frames http://127.0.0.1:49978/ | http://127.0.0.1:49978/assets/assets/html/claude_documents.html
+errors []
+frames http://127.0.0.1:49978/ | http://127.0.0.1:49978/api/page?url=https%3A%2F%2Fwww.google.com%2F
+errors ["console: Failed to load resource: the server responded with a status of 403 (Forbidden)","console: Failed to load resource: the server responded with a status of 400 (Bad Request)"]
+frames http://127.0.0.1:49978/
+errors ["console: Blocked call to navigator.vibrate because user hasn't tapped on the frame or any embedded frame yet: https://www.chromestatus.com/feature/5644273861001216."]
+TOUR3 DONE 
+frames http://127.0.0.1:49978/
+errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)"]
+frames http://127.0.0.1:49978/ | http://127.0.0.1:49978/api/page?url=https%3A%2F%2Fwww.google.com%2F
+errors ["console: Failed to load resource: the server responded with a status of 403 (Forbidden)","console: Failed to load resource: the server responded with a status of 400 (Bad Request)"]
+frames http://127.0.0.1:49978/
+errors []
+frames http://127.0.0.1:49978/
+errors []
+frames http://127.0.0.1:49978/
+errors []
+frames http://127.0.0.1:49978/ | http://127.0.0.1:49978/assets/assets/html/claude_documents.html
+errors []
+TOURSE DONE 
+frames http://127.0.0.1:54208/
+errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: the server responded with a status of 404 (Not Found)"]
+frames http://127.0.0.1:54208/
+errors []
+frames http://127.0.0.1:54208/
+errors []
+TOUR4 DONE 

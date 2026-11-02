@@ -1,0 +1,16 @@
+
+ ⛅️ wrangler 4.151.3
+────────────────────
+Resource location: remote 
+
+🌀 Creating namespace with title "COLLIDER_PHONE"
+✨ Success!
+To access your new KV Namespace in your Worker, add the following snippet to your configuration file:
+{
+  "kv_namespaces": [
+    {
+      "binding": "COLLIDER_PHONE",
+      "id": "8adb124b3408401ebf36754e144b5a85"
+    }
+  ]
+}

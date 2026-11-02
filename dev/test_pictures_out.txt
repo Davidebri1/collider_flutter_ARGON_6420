@@ -1,0 +1,4 @@
+cloudflare @cf/black-forest-labs/flux-2-klein-4b 403 0.1s 17  b'error code: 1010\n'
+cloudflare @cf/black-forest-labs/flux-2-dev 403 0.1s 17  b'error code: 1010\n'
+nvidia flux.1-dev 768 1344 200 7.7s 62165 SUCCESS
+nvidia flux.1-dev 1024 1024 200 8.2s 68022 SUCCESS

@@ -1,0 +1,208 @@
+# Collider — Universal Product & Architectural Specification
+## Spatial Conversation Ticker Edition (v2.0)
+
+> **Document Classification**: Universal, Platform & Framework-Agnostic Product Specification  
+> **Status**: Authoritative Master Specification  
+> **Design Language**: Apple visionOS Spatial Minimalism & Demure Glass Architecture  
+> **Target Implementations**: Flutter Native (Impeller), Native Swift/visionOS, React Native Spatial, WebGL/CanvasKit  
+> **Primary File Locations**:  
+> - Windows Documents: `C:\Users\D\Documents\COLLIDER_UNIVERSAL_SPEC.md`  
+> - Windows Documents: `C:\Users\D\Documents\CONVERSATION_TICKER_SPEC.md`  
+> - Repository Docs: `docs/COLLIDER_GENERAL_SPEC.md`  
+
+---
+
+## 1. Core Intent & Product Philosophy
+
+### 1.1 The Background Is the Product
+Traditional artificial intelligence clients treat the user interface as a container for chat text, boxing the user into heavy opaque panels, chat bubbles, and border-heavy cards that smother the visual canvas.
+
+Collider inverts this relationship entirely:
+- **The living environment / dynamic wallpaper is the primary product.**
+- Everything else is **demure, optical glass** that exists solely to serve, respect, and reveal the background.
+- The interface does not impose itself on the environment; it floats within it as a delicate, translucent spatial artifact.
+
+### 1.2 The Ticker Paradigm: Zero-Interaction Comparison
+The Conversation Ticker exists to allow the user to evaluate and compare multiple AI model outputs simultaneously—across text, code, images, audio, and video—at a single glance, without leaving the living background.
+- **Complete Answers, Never Teasers**: Each collapsed pill delivers a complete, actionable answer or conclusion. It is never a truncated preview snippet, clickbait summary, or ellipsis (`...`). If the user must expand a pill to understand the answer, the summary failed.
+- **Zero-Interaction Comparison**: Comparing active models requires zero taps, zero tab switches, and zero carousels. The comparison happens passively and instantaneously simply by scanning down the column of floating pills. For generative media, thumbnails are presented directly in the collapsed pill.
+- **Calm, Paced Streaming**: Model generation streams at calm, varied speeds. The user reads one thought at a time without frenetic UI jumping.
+- **Expansion for Depth, Not Completion**: Expanding a pill is reserved strictly for drilling down into depth (browsing multi-turn conversation branches, sending an isolated model prompt, inspecting local file attachments, or launching a model-specific browser).
+
+---
+
+## 2. VisionOS Spatial Architecture & Canvas Principles
+
+### 2.1 The Law of Bounded Spatial Windows (Strictly Zero Full-Width)
+In Apple visionOS, screen bezels and display edges do not exist; the user occupies an infinite 3D spatial reality. 
+- **Full-width elements are strictly forbidden**: No containers, ribbons, banners, or docks may stretch edge-to-edge across the viewport. Stretching elements horizontally is a legacy 2D mobile web artifact that destroys spatial presence.
+- **Expansive Negative Space**: Every window, pill, and dock is bounded with intentional spatial geometry and centered with generous lateral and vertical negative space. The living cosmos/wallpaper must always be visible framing all sides of the interface.
+
+### 2.2 Depth Plane Hierarchy
+
+The interface operates across calibrated optical depth planes:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Plane 0: Base Living Wallpaper / Atmosphere (Continuous, Unobstructed) │
+│                                                                         │
+│           [Floating User Prompt — Centered, Frameless Glass]            │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │ Plane 1: VisionOS Floating Window Canvas Platter                │   │
+│   │   (Translucent optical glass, 28px squircle, specular rim)      │   │
+│   │                                                                 │   │
+│   │   ┌─────────────────────────────────────────────────────────┐   │   │
+│   │   │ Plane 2: Pinned Consensus Row                           │   │   │
+│   │   │ [✦ 7/7 Consensus]                  [↻ Full Consensus]   │   │   │
+│   │   │ 1 line consensus summary, strictly untruncated.         │   │   │
+│   │   ├─────────────────────────────────────────────────────────┤   │   │
+│   │   │ Plane 2: Model Ticker Pills (Max 9)                     │   │   │
+│   │   │ ▌ Model A (Provider border only)               just now │   │   │
+│   │   │   Complete actionable answer on a single line.          │   │   │
+│   │   │ ▌ Model B (Provider border only)               just now │   │   │
+│   │   │   Complete actionable answer on a single line.          │   │   │
+│   │   └─────────────────────────────────────────────────────────┘   │   │
+│   │                    [=== Window Grabber ===]                     │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│               ↕ 16px Clear Detached Spatial Clearance                   │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │ Plane 3: Detached Floating Ornament Nav Dock (5 Icons Only)     │   │
+│   │       [Home]    [History]    [Apps]    [Themes]    [Settings]   │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Plane 0: Atmosphere & Living Wallpaper**:
+   - Continuous 4K dynamic background.
+   - Always visible, never blurred globally, never occluded by opaque walls.
+2. **Plane 1: The Resting Content Canvas Platter**:
+   - The foundational visionOS window canvas that grounds the ticker.
+   - Translucent optical glass with 20px–24px Gaussian blur, `0.5px` specular rim highlight, and continuous `28px` corner squircle.
+   - Bounded width (360px–380px), positioned towards the bottom with generous negative space on all sides.
+   - Anchored at the bottom center with the **visionOS Window Grabber Bar** (`42px x 4.5px`, `Color(0x3DFFFFFF)`).
+3. **Plane 2: Content on Canvas (Consensus & Pills)**:
+   - Consensus row and model pills floating as demure secondary glass capsules directly inside the canvas platter.
+4. **Plane 3: Detached Floating Ornament Dock**:
+   - The permanent 5-icon nav bar.
+   - Floats physically detached **16px below the canvas platter grabber bar**. Never glued to the window, never glued to the bottom of the screen.
+5. **Plane 4: Focused Modals & Overlays**:
+   - Apps Popup Pane and Message Zoom View.
+   - Summoned to the middle neutral area with a dimmed/blurred backdrop scrim.
+
+---
+
+## 3. Detailed Component Specifications
+
+### 3.1 Floating User Prompt
+- **Collapsed State**: Floats centered above the window canvas with ample vertical breathing room. Frameless, demure glass with subtle text shadow, displaying the user's latest query with zero heavy borders.
+- **Tap Interaction**: Tapping the prompt brings it into the foreground as an expanded broadcast composer modal over a dimmed backdrop scrim.
+- **Dismiss Interaction**: Tapping outside the modal or pressing close immediately dismisses it back to its floating collapsed state.
+
+### 3.2 Consensus Row
+- **Placement**: Pinned to the top of the rows inside the Window Canvas Platter.
+- **Score Chip**: Displays collective model agreement **headcount ratio** (e.g. `✦ 7/7 Consensus` or `✦ 8/9 Consensus`). Strictly an objective ratio of agreeing models to active models; never an arbitrary percentage.
+- **Essence Summary**: Strictly **1 line consensus summary, not truncated**. Zero wrapping, zero ellipsis (`...`). Calibrated character density ensuring the complete thought fits within the bounded canvas width.
+- **Full Consensus On-Demand**: Triggered via dedicated `Full Consensus` button.
+- **Visual Generation Indicator**: Displays an **unmistakable visual generation indicator** (e.g. glowing progress wave) while computing consensus. Visually distinct from individual model streaming.
+
+### 3.3 Model Ticker Pills (Max 9 Active Models)
+- **One Pill Per Active Model**: Exactly one pill per active model, up to 9 models maximum.
+- **Collapsed Pill Architecture**:
+  - **Colour**: the provider's colour across the whole card. Struck on 2026-10-03 on David's instruction (not his, no justification): "left border only".
+  - **Model Name**: Clean text only. Zero icons, zero vendor logos, zero badges, zero status dots, zero avatars.
+  - **Timestamp**: Relative, single line (`just now`, `2m ago`).
+  - **Takeaway Summary**: Complete, actionable 1-sentence answer. Never truncated. Never a teaser.
+- **Expanded Pill Architecture (Inline Expansion)**:
+  - **Inline Only**: Tapping a pill expands it inline, pushing sibling pills downward. It **never overlays or hides siblings**.
+  - **Max Height & Internal Scroll**: Height is bounded (e.g. max 280px) so the background and other pills remain visible. Chat history scrolls internally.
+  - **Full Local Feature Access**:
+    - **Search**: In-conversation keyword search across body and title.
+    - **Local Files**: Model-specific attachments and file picker.
+    - **Local History**: Flyout to browse model-specific historical conversation sessions.
+    - **Copy**: One-tap copy of the complete output.
+    - **Model Browser**: Icon to open that model's dedicated web browser tab (only 1 active browser instance across the app).
+  - **Inline Isolated Branch Composer**: Dedicated input field at the bottom of the expanded pill. Sending a message from here creates an **isolated branch** sent exclusively to this single model.
+
+### 3.4 Isolated Conversations
+- When a model enters an isolated branch, its pill reflects a **subtle, pristine warm highlight** (`Color(0x1CF5E8D0)` with gold-tinted rim).
+- The distinction between global group messages and isolated branch messages is unambiguous: one or the other is highlighted, never ambiguous.
+
+### 3.5 Cross-Model Generative Media Comparison
+- Pills for image, video, or audio generation models display visual thumbnails directly in their **collapsed state**.
+- Comparison requires **zero interaction**: the user compares creative outputs immediately by scanning the visible thumbnails.
+- Expanded state provides horizontal scroll gallery for multiple generation variations, media metadata, and full playback.
+
+### 3.6 Permanent Nav Bar (Replaces Composer)
+- **Zero Text Input**: Permanent text inputs are banned from the bottom of the screen. The nav bar replaces the composer.
+- **Detached Floating Ornament**: Floats 16px below the canvas platter grabber bar as a rounded glass capsule.
+- **5 Ergonomic Icons Only**:
+  1. **Home Canvas** (`space_dashboard`): Closes all temporary panes, collapses expanded pills, and restores the base resting canvas.
+  2. **Conversation History** (`history`): Opens the global multi-model history session list.
+  3. **Apps Hub** (`apps`): Summons the centered Apps Popup Pane.
+  4. **Themes / Wallpaper** (`wallpaper`): Opens the Living Wallpaper & Themes manager.
+  5. **Settings & Account** (`settings`): Opens the preferences and configuration pane.
+- **Global Broadcast Activation**: Tapping a dedicated send trigger or deselecting models enables selective broadcast where only currently selected models receive the prompt.
+
+### 3.7 Apps Popup Pane
+- **Summoned Location**: Summons directly to the middle neutral area of the screen over a dimmed and blurred background scrim.
+- **Framing**: Frameless frosted glass capsule menu. **Strictly zero outer rectangular window canvas.**
+- **The Two-Escape Law**:
+  - **Escape 1**: Tapping anywhere outside the pane on the backdrop scrim dismisses it immediately.
+  - **Escape 2**: Clicking the circular `✕` close icon dismisses it immediately.
+- **Exact Options (Exactly 4)**:
+  1. **Premium Marketplace**
+  2. **Discover Market**
+  3. **Smart Gen**
+  4. **Browser**
+
+### 3.8 Conversation History & Instant Load-and-Expand
+- Tapping any conversation session in either Global History or Local History immediately:
+  1. Closes all open temporary panes, drawers, and modal scrims.
+  2. Restores the main canvas.
+  3. Automatically navigates to the target model and opens it directly into its **Expanded View** with full conversation history loaded.
+
+### 3.9 Message Zoom Overlay
+- Tapping any individual message in an expanded conversation opens a focused, zoomed view.
+- **Visual Treatment**: Dimmed/blurred backdrop, faded vertical gradient edges (shader mask), and zero visible window borders.
+- **Action Ribbon**: Floating glass capsule at the bottom of the message with actions: Copy, Share, Close.
+
+---
+
+## 4. System Boundaries & Explicit Exclusions
+
+The following elements are **strictly out of scope** and must never be reintroduced:
+
+| Prohibited Feature | Reason for Exclusion |
+|---|---|
+| **Drag-and-Drop Reordering** | Adds heavy touch listeners and accidental gesture friction. Pill positions encode recency and relevance naturally. |
+| **Monolithic "Tower" Window** | Heavy outer window cards with outer titles ("Collider"), category pill strips, and grabber headers smother the living wallpaper. |
+| **Full-Width Containers** | Breaks the fundamental visionOS spatial metaphor; makes the app feel like a dated 2012 web view. |
+| **Complex 3D Consensus Maps** | Heavy WebGL celestial maps divert focus from the primary task of rapid textual and visual consensus comparison. |
+| **Side Drawers & Sliding Panels** | Displace the living wallpaper laterally and create claustrophobic viewing angles. All auxiliary features use centered floating glass capsules. |
+| **Truncated Teaser Summaries** | Summaries must be complete answers. Forcing a click just to read the conclusion violates the core intent. |
+| **Duplicate Persistent Composers** | A permanent text box at the bottom consumes vertical space and distracts from the visual canvas. |
+
+---
+
+## 5. Binary Acceptance Criteria Matrix
+
+All implementations must satisfy 100% of the following binary conditions:
+
+- [x] **Background Unobstructed**: Living wallpaper is continuous, visible around all 4 sides of the canvas, and never globally occluded.
+- [x] **Strictly Zero Full-Width**: Canvas width is bounded (360px–380px), floating centered with generous spatial breathing room.
+- [x] **VisionOS Canvas Platter**: Translucent glass window canvas with 28px rounded corners, specular rim border, and bottom grabber bar.
+- [x] **One Pill Per Active Model**: Maximum 9 pills, one per active model, no empty placeholders or duplicate rows.
+- [x] **Complete Untruncated Summaries**: Every summary is a complete, definitive answer. No ellipsis (`...`) or teasers.
+- [x] **Strictly 1 Line Consensus**: Consensus summary is exactly 1 line, untruncated, with on-demand Full Consensus trigger and unmistakable visual generation indicator.
+- [x] **Thumbnails in Collapsed Media Pills**: Generative image/video models display thumbnails directly in collapsed state for zero-interaction comparison.
+- [x] **Inline Accordion Expansion**: Pushes siblings downward inline; maximum height enforced with internal scroll; full local feature ribbon (search, files, history, copy, browser).
+- [x] **Isolated Conversations Distinct**: Isolated single-model branches display a subtle, pristine highlight.
+- [x] **Detached Floating Ornament Nav Bar**: 5 icons only (`Home`, `History`, `Apps`, `Themes`, `Settings`), floating 16px below the canvas platter with zero text composer field.
+- [x] **Floating User Prompt**: Floats un-framed and centered above canvas; click → foreground modal; click outside → dismiss.
+- [x] **Centered Apps Popup Pane**: Middle neutral area, no visible outer canvas, exactly 4 options, clickaway + close icon dismiss.
+- [x] **Instant Load-and-Expand**: Tapping any history session closes all drawers and expands that session directly in-place.
+- Struck on 2026-10-03 on David's instruction (not his, no justification): "Color Restricted to Left Border".
+- [x] **Calm Streaming**: Model outputs stream with steady, dignified pacing.

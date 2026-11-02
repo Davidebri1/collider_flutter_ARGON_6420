@@ -1,0 +1,13 @@
+
+ ⛅️ wrangler 4.151.3
+────────────────────
+Total Upload: 2.42 KiB / gzip: 1.04 KiB
+Worker Startup Time: 4 ms
+Your Worker has access to the following bindings:
+Binding        Resource      
+env.AI         AI            
+
+Uploaded collider-imagine (6.18 sec)
+Deployed collider-imagine triggers (2.15 sec)
+  https://collider-imagine.ebridavid.workers.dev
+Current Version ID: a58bbde9-c62a-4d67-835e-bca9bb946769

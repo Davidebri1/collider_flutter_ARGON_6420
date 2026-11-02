@@ -1,0 +1,40 @@
+# Made by Claude. This folder is the repository: only the app's own source is tracked.
+# Collider.exe goes to GitHub as a release download (dev\publish.py).
+/*
+!/dev/
+/dev/.venv-build/
+!/lib/
+!/tools/
+!/web/
+!/docs/
+!/test/
+!/assets/
+/assets/**/live/
+!/pubspec.yaml
+!/pubspec.lock
+!/analysis_options.yaml
+!/.metadata
+!/.gitignore
+!/render.yaml
+!/README_CLAUDE.md
+__pycache__/
+*.log
+/dev/editor/node_modules/
+/dev/editor/test_out/
+/dev/editor/*.log
+/dev/editor/src/pdf_worker_source.js
+/dev/editor/src/symbols_font.js
+/dev/probe_out/
+/dev/*.log
+/dev/build_log.txt
+/dev/test_app/
+
+# Claude (2026-10-21): the phone copy carries the keys in its configuration; Wrangler's own scratch folders
+/dev/phone_app/
+.wrangler/
+/data/collider_config.before_*.json
+# Claude (2026-10-21): the exe's build scratch (PyInstaller work, dist, set-aside exes). Each build had been committed,
+# about 75 MB a time; the exe itself goes up as a release download instead.
+/dev/exe/
+/dev/space_stage/ 
+/dev/online_test/ 

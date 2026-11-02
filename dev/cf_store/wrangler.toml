@@ -1,0 +1,13 @@
+# Made by Claude (2026-10-23). Collider online keeps its data here: the configuration with the providers and keys,
+# history and Files, and the app's web build, in the R2 bucket collider-data. Only a request carrying the key
+# STORE_KEY (a Worker secret; the same key is in dev/space/store.json in the private repository) is answered.
+name = "collider-store"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+account_id = "2699adb1984283a8486bc169c8376a21"
+workers_dev = true
+preview_urls = false
+
+[[r2_buckets]]
+binding = "STORE"
+bucket_name = "collider-data"

@@ -1,0 +1,7 @@
+status done stage done 195s
+google/gemma-4-31b-it                    done     line='The ball costs 5 cents'  leak=False  start='The ball costs 5 cents. If the ball is 5 cents and the bat is $1.00 more, the ba'
+openai/gpt-oss-20b                       done     line='The ball costs 5 cents'  leak=False  start='The ball is 5 cents. The bat is 1.05 dollars. The total is 1.10 dollars.'
+z-ai/glm-5.3                             done     line='The ball costs 5 cents'  leak=False  start="The common wrong answer is 10 cents, but that doesn't work: if the ball were 10 "
+meta/muse-glimmer-30b                    done     line='The ball costs 5 cents'  leak=False  start='The ball is 5 cents. The bat is $1.05. Together 5 cents plus $1.05 is $1.10, and'
+nvidia/nemotron-3.5-lightning-30b-a3b    done     line='The ball costs 5 cents'  leak=False  start='If the ball costs X, the bat costs X + $1.00. Together they total $1.10, so 2X +'
+consensus done | The ball costs 5 cents, because then the bat costs $1.05 and together they total $1.10.

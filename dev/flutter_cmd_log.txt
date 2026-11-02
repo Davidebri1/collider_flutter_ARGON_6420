@@ -1,0 +1,15 @@
+Analyzing lib...                                                
+
+   info - The private field _ambientBusy could be 'final'. Try making the field 'final' - lib\core\media\live_frames_web.dart:91:8 - prefer_final_fields
+   info - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation - lib\core\media\theme_blur_cache.dart:26:80 - prefer_const_constructors
+   info - The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart'. Try removing the import directive - lib\core\media\theme_media_bundle.dart:2:8 - unnecessary_import
+   info - The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/services.dart'. Try removing the import directive - lib\core\media\theme_media_bundle.dart:3:8 - unnecessary_import
+   info - The imported package 'url_launcher' isn't a dependency of the importing package. Try adding a dependency for 'url_launcher' in the 'pubspec.yaml' file - lib\core\platform\open_url_stub.dart:4:8 - depend_on_referenced_packages
+   info - The import of 'dart:typed_data' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/foundation.dart'. Try removing the import directive - lib\core\voice\voice_web.dart:7:8 - unnecessary_import
+warning - A value for optional parameter 'reply' isn't ever given. Try removing the unused parameter - lib\features\consensus\consensus_webview.dart:53:82 - unused_element_parameter
+warning - The value of the field '_u' isn't used. Try removing the field, or using it - lib\features\files\screens\files_screen.dart:101:10 - unused_field
+warning - Returning a 'Future' without 'await' inside a try block. Try adding an 'await' - lib\features\theme\theme_pack_store.dart:120:7 - unawaited_return_in_try_block
+warning - The value of the field '_promptTime' isn't used. Try removing the field, or using it - lib\main.dart:130:13 - unused_field
+warning - The declaration '_isPillActive' isn't referenced. Try removing the declaration of '_isPillActive' - lib\main.dart:1004:8 - unused_element
+
+11 issues found. (ran in 9.3s)

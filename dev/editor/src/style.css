@@ -1,0 +1,78 @@
+/* Made by Claude (2026-10-20). Collider's document editor: a white page on dark glass, as a document sits in a
+   visionOS window; the tools in one glass bar above it. */
+@font-face { font-family: 'Symbols'; src: url(data:font/woff2;base64,__SYMBOLS__) format('woff2'); font-display: block; }
+:root { --ink: #1d1d1f; --glass: rgba(40, 42, 50, .72); --line: rgba(255,255,255,.10); }
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: transparent; font: 14px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif; color: #f2f2f7; }
+.app { height: 100%; display: flex; flex-direction: column; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 8px 10px; margin: 10px 10px 0; border-radius: 22px;
+  background: var(--glass); backdrop-filter: blur(24px) saturate(1.4); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.sep { width: 1px; height: 22px; background: var(--line); margin: 0 6px; }
+.btn { width: 44px; height: 44px; border-radius: 12px; border: 0; background: transparent; display: grid; place-items: center; cursor: pointer; }
+@media (hover: hover) { .btn:hover { background: rgba(255,255,255,.10); } }
+.btn:active { background: rgba(255,255,255,.16); }
+.btn.on { background: rgba(255,255,255,.20); }
+.btn:disabled { opacity: .35; cursor: default; }
+.ico { font-family: 'Symbols'; font-size: 22px; line-height: 1; font-variation-settings: 'FILL' 1; -webkit-font-smoothing: antialiased; }
+select.pick { height: 44px; border-radius: 10px; border: 0; background: rgba(255,255,255,.08); color: #f2f2f7; padding: 0 8px; font: inherit; cursor: pointer; }
+select.pick option { background: #2c2c2e; }
+.swatch { position: relative; }
+.swatch input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.name { flex: 1 1 160px; min-width: 120px; height: 44px; border: 0; border-radius: 10px; background: rgba(255,255,255,.06); color: #fff; font: 600 14px/1 inherit; padding: 0 10px; }
+.name:focus { outline: none; background: rgba(255,255,255,.08); }
+@media (max-width: 600px) {
+  .bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-right: 44px; -webkit-overflow-scrolling: touch; }
+  .bar::-webkit-scrollbar { display: none; }
+  .bar > * { flex-shrink: 0; }
+  .name { flex: 0 0 150px; min-width: 150px; }
+}
+.status { font-size: 12px; color: rgba(235,235,245,.6); padding: 0 8px; white-space: nowrap; }
+.scroll { flex: 1; overflow: auto; padding: 18px 10px 40px; }
+.page { max-width: 816px; min-height: 1056px; margin: 0 auto; background: #fff; color: var(--ink); border-radius: 6px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45); padding: 72px 84px; }
+.page .ProseMirror { outline: none; min-height: 900px; font: 16px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif; }
+.ProseMirror h1 { font-size: 2em; margin: .6em 0 .3em; } .ProseMirror h2 { font-size: 1.5em; margin: .6em 0 .3em; } .ProseMirror h3 { font-size: 1.2em; margin: .6em 0 .3em; }
+.ProseMirror p { margin: .45em 0; }
+.ProseMirror blockquote { border-left: 3px solid #d1d1d6; margin: .6em 0; padding-left: 14px; color: #48484a; }
+.ProseMirror pre { background: #f2f2f7; border-radius: 8px; padding: 12px 14px; font: 13px/1.5 "Cascadia Mono", Consolas, monospace; }
+.ProseMirror code { background: #f2f2f7; border-radius: 4px; padding: 1px 4px; font: .9em "Cascadia Mono", Consolas, monospace; }
+.ProseMirror img { max-width: 100%; border-radius: 6px; }
+.ProseMirror img.ProseMirror-selectednode { outline: 3px solid #0091ff; }
+.ProseMirror a { color: #0071e3; text-decoration: underline; }
+.ProseMirror hr { border: 0; border-top: 1px solid #d1d1d6; margin: 1.2em 0; }
+.ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+.ProseMirror ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
+.ProseMirror ul[data-type="taskList"] li > label { margin-top: .3em; }
+.ProseMirror table { border-collapse: collapse; width: 100%; margin: .8em 0; table-layout: fixed; }
+.ProseMirror td, .ProseMirror th { border: 1px solid #d1d1d6; padding: 6px 8px; vertical-align: top; position: relative; }
+.ProseMirror th { background: #f2f2f7; font-weight: 600; text-align: left; }
+.ProseMirror .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(0,145,255,.12); pointer-events: none; }
+.ProseMirror .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; background: #0091ff; }
+.ProseMirror mark { border-radius: 2px; padding: 0 1px; }
+.img-uploading { opacity: .4; }
+.drag-handle { position: fixed; width: 18px; height: 22px; border-radius: 5px; cursor: grab; opacity: .55;
+  background: radial-gradient(circle, #8e8e93 1.4px, transparent 1.6px) 0 0 / 6px 6px; z-index: 5; }
+.drag-handle:hover { background-color: #f2f2f7; opacity: 1; }
+.drag-handle.hide { opacity: 0; pointer-events: none; }
+.bubble { display: flex; gap: 2px; padding: 4px; border-radius: 14px; background: rgba(44,44,46,.92); backdrop-filter: blur(20px);
+  border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.menu { width: 260px; max-height: 330px; overflow: auto; padding: 6px; border-radius: 14px; background: rgba(44,44,46,.96);
+  backdrop-filter: blur(20px); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); color: #f2f2f7; z-index: 50; }
+.menu [cmdk-item] { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; cursor: pointer; }
+.menu [cmdk-item][aria-selected="true"] { background: rgba(255,255,255,.12); }
+.menu .t { font-size: 13px; font-weight: 600; } .menu .d { font-size: 11px; color: rgba(235,235,245,.6); }
+.menu .ico { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,255,255,.08); font-size: 18px; }
+.foot { text-align: center; font-size: 12px; color: rgba(235,235,245,.6); padding: 0 0 10px; }
+.pdfprint .page { box-shadow: none; border-radius: 0; }
+.btn { color: #f2f2f7; padding: 0; }
+.swatch { overflow: hidden; }
+.menuwrap { position: relative; display: inline-flex; }
+.drop { position: absolute; top: 38px; left: 0; z-index: 60; min-width: 150px; padding: 6px; border-radius: 14px; background: rgba(44,44,46,.96);
+  backdrop-filter: blur(20px); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 2px; }
+.drop button { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 0; border-radius: 9px; background: transparent;
+  color: #f2f2f7; font: 600 13px/1 inherit; cursor: pointer; text-align: left; }
+.drop button:hover { background: rgba(255,255,255,.12); }
+.name.link { flex: 0 1 220px; font-weight: 400; background: rgba(255,255,255,.08); }
+.page .tableWrapper { overflow-x: auto; }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.4em; }

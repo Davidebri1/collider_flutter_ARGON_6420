@@ -1,0 +1,32 @@
+{
+  "name": "collider-documents",
+  "private": true,
+  "description": "Made by Claude (2026-10-20): Collider's document editor, built on Novel (Vercel's Notion-style editor template), as one HTML page.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@tiptap/extension-font-family": "^2.27.1",
+    "@tiptap/extension-subscript": "^2.27.1",
+    "@tiptap/extension-superscript": "^2.27.1",
+    "@tiptap/extension-table": "^2.27.1",
+    "@tiptap/extension-table-cell": "^2.27.1",
+    "@tiptap/extension-table-header": "^2.27.1",
+    "@tiptap/extension-table-row": "^2.27.1",
+    "@tiptap/extension-text-align": "^2.27.1",
+    "@tiptap/extension-typography": "^2.27.1",
+    "docx": "^9.5.1",
+    "esbuild": "^0.24.2",
+    "html2pdf.js": "^0.10.2",
+    "mammoth": "^1.8.0",
+    "marked": "^14.1.4",
+    "novel": "^1.0.2",
+    "pdfjs-dist": "^4.10.38",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

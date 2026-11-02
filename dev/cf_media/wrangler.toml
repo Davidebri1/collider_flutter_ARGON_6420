@@ -1,0 +1,9 @@
+# Made by Claude (2026-10-21). The theme store's files from Cloudflare's edge, kept by browsers (see src/index.js).
+name = "collider-media"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+preview_urls = false
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "collider-themes"

@@ -1,0 +1,1 @@
+BUILD_EXIT 0 log: C:\Users\D\Documents\collider_flutter_CLAUDE_20261020\dev\build_log.txt
