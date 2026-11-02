@@ -762,6 +762,8 @@ class VSearchField extends StatelessWidget {
           backgroundColor: Colors.transparent,
           itemColor: VColors.textTertiary,
           itemSize: 16,
+          prefixIcon: const Icon(Icons.search_rounded, size: 16, color: VColors.textTertiary),
+          suffixIcon: const Icon(Icons.cancel_rounded, size: 16, color: VColors.textTertiary),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           style: VType.callout(weight: FontWeight.w400),
           placeholderStyle: VType.callout(color: VColors.textTertiary, weight: FontWeight.w400),

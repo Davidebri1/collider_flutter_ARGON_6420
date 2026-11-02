@@ -167,7 +167,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
   String _voicePhase = '';
   bool _musicHeldForVoice = false;
   String? _docName;
-  String _chatSection = 'history';
+  String _chatSection = 'search';
 
   /// The rail ornament shows on the resting canvas and durable work surfaces.
   bool get _railVisible {
