@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Collider — Drag & Drop Multi-Worktree Visual Command Center</title>
+<style>
+  :root {
+    --bg: #07090e;
+    --panel: rgba(18, 22, 34, 0.82);
+    --card: rgba(26, 32, 48, 0.88);
+    --card-hover: rgba(36, 44, 66, 0.95);
+    --border: rgba(255, 255, 255, 0.12);
+    --border-bright: rgba(10, 132, 255, 0.65);
+    --text: #f5f7fa;
+    --muted: #9aa6b8;
+    --blue: #0a84ff;
+    --green: #30d158;
+    --purple: #bf5af2;
+    --orange: #ff9f0a;
+    --cyan: #3cd3fe;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at 20% 0%, #131b2e 0%, #07090e 65%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 24px;
+    background: rgba(12, 15, 24, 0.88);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .badge {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-weight: 600;
+    background: rgba(10, 132, 255, 0.18);
+    color: var(--cyan);
+    border: 1px solid rgba(60, 211, 254, 0.35);
+  }
+  .scene-switcher {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .scene-btn {
+    background: rgba(255,255,255,0.07);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 13px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .scene-btn:hover, .scene-btn.active {
+    background: var(--blue);
+    border-color: var(--cyan);
+    box-shadow: 0 0 14px rgba(10, 132, 255, 0.45);
+  }
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 20px 24px 60px;
+  }
+  /* Top Drag-and-Drop Live Comparison Stage */
+  .compare-stage {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px;
+  }
+  .stage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .stage-header h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .slots-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .drop-slot {
+    background: rgba(8, 11, 18, 0.75);
+    border: 2px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 14px;
+    min-height: 540px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.15s ease;
+  }
+  .drop-slot.drag-over {
+    border-color: var(--cyan);
+    background: rgba(10, 132, 255, 0.12);
+    box-shadow: 0 0 24px rgba(10, 132, 255, 0.3);
+  }
+  .slot-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .slot-bar strong {
+    color: var(--cyan);
+  }
+  .slot-bar a {
+    color: var(--text);
+    text-decoration: none;
+    background: rgba(255,255,255,0.1);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+  .slot-iframe {
+    width: 100%;
+    height: 520px;
+    border: none;
+    background: #05070c;
+  }
+  /* Kanban Drag & Drop Lanes */
+  .kanban {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .lane {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .lane.drag-over {
+    border-color: var(--purple);
+    background: rgba(191, 90, 242, 0.08);
+  }
+  .lane-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .p-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    padding: 13px;
+    cursor: grab;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  .p-card:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-2px);
+  }
+  .p-card:active {
+    cursor: grabbing;
+  }
+  .p-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .p-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .p-port {
+    font-family: monospace;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(48, 209, 88, 0.16);
+    color: var(--green);
+    border: 1px solid rgba(48, 209, 88, 0.4);
+    white-space: nowrap;
+  }
+  .p-base {
+    font-size: 11px;
+    color: var(--cyan);
+    margin-bottom: 6px;
+  }
+  .p-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-bottom: 10px;
+  }
+  .p-path {
+    font-family: monospace;
+    font-size: 10.5px;
+    color: #cbd5e1;
+    background: rgba(0,0,0,0.35);
+    padding: 5px 8px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    word-break: break-all;
+  }
+  .p-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .btn {
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .btn.primary {
+    background: var(--blue);
+    border-color: var(--cyan);
+    color: #fff;
+  }
+  .btn.purple {
+    background: rgba(191, 90, 242, 0.22);
+    border-color: rgba(191, 90, 242, 0.55);
+    color: #f3dafe;
+  }
+  .btn.green {
+    background: rgba(48, 209, 88, 0.18);
+    border-color: rgba(48, 209, 88, 0.5);
+    color: #bbf7d0;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>Collider — Drag & Drop Multi-Worktree Visual Command Center</h1>
+    <span class="badge">12 Distinct Project Trees Live</span>
+  </div>
+  <div class="scene-switcher">
+    <span style="font-size:12px;color:var(--muted);margin-right:4px;">Sync Compare Stage Scene:</span>
+    <button class="scene-btn active" onclick="setGlobalScene('/')">Home (Ticker)</button>
+    <button class="scene-btn" onclick="setGlobalScene('/?drawer=premium')">Premium Theme Market</button>
+    <button class="scene-btn" onclick="setGlobalScene('/?drawer=wallpaper')">Theme Gallery</button>
+    <button class="scene-btn" onclick="setGlobalScene('/?drawer=smartgen')">Smart Gen</button>
+    <button class="scene-btn" onclick="setGlobalScene('/?drawer=market')">Discover Market</button>
+    <button class="scene-btn" onclick="setGlobalScene('/?drawer=history')">History Pane</button>
+    <button class="scene-btn" onclick="setGlobalScene('/?home=alt')">Alt Home (?home=alt)</button>
+    <button class="scene-btn" onclick="setGlobalScene('/config')">/config Form</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <!-- Interactive 3-Slot Drag & Drop Live Comparison Stage -->
+  <div class="compare-stage">
+    <div class="stage-header">
+      <h2>Live Interactive Comparison Stage — Drag Any Project Card Below Into Slot A, B, or C</h2>
+      <span style="font-size:12px;color:var(--muted);">Interact directly with the live apps inside each slot or click "Open Full Tab"</span>
+    </div>
+    <div class="slots-grid">
+      <div class="drop-slot" id="slot-0" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event, 0)"></div>
+      <div class="drop-slot" id="slot-1" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event, 1)"></div>
+      <div class="drop-slot" id="slot-2" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event, 2)"></div>
+    </div>
+  </div>
+
+  <!-- Drag & Drop Kanban Work Area -->
+  <div class="kanban">
+    <div class="lane" id="lane-favorites" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToLane(event, 'lane-favorites')">
+      <div class="lane-title"><span>★ Favorite & Consolidated Builds</span><span>Drag to Reorder / Compare</span></div>
+    </div>
+    <div class="lane" id="lane-feature-branches" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToLane(event, 'lane-feature-branches')">
+      <div class="lane-title"><span>⚡ Feature Worktrees (Mimo, CommandCode, 8480, 8473)</span><span>Drag to Move</span></div>
+    </div>
+    <div class="lane" id="lane-baselines" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToLane(event, 'lane-baselines')">
+      <div class="lane-title"><span>📦 Baselines & v9.1.6h–v9.2.0 Train</span><span>Drag to Move</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROJECTS = [
+  {
+    id: "argon_6420",
+    lane: "lane-favorites",
+    title: "1. ARGON_6420 (Consolidated + Conveyor CoverFlow)",
+    port: 6420,
+    url: "http://127.0.0.1:6420",
+    configUrl: "http://127.0.0.1:6420/config",
+    github: "https://github.com/Davidebri1/collider_flutter_ARGON_6420",
+    folder: "C:\\Users\\D\\Documents\\collider_flutter_ARGON_6420",
+    serverPath: "C:\\Users\\D\\Documents\\collider_flutter_ARGON_6420\\tools\\collider_server.py",
+    base: "Based on: CLAUDE_20261020 + Argon Oct 24–25 (41923) + Mimo Conveyor CoverFlow",
+    desc: "Color-Lit Side Nav with Search + Centered 5-Row History + Auto-Named Conversation Headers + Top Category Pills + Continuous-pos Conveyor CoverFlow."
+  },
+  {
+    id: "flash_41923",
+    lane: "lane-favorites",
+    title: "2. flash41923 (Oct 25 Spin-Off — Your Favorite Look)",
+    port: 41923,
+    url: "http://127.0.0.1:41923",
+    configUrl: "http://127.0.0.1:41923/configurator.html",
+    github: "https://github.com/Davidebri1/collider_flutter_ARGON_8474/tree/argon-oct25-41923",
+    folder: "C:\\Users\\D\\Documents\\collider_source_builds\\flash41923",
+    serverPath: "C:\\Users\\D\\Documents\\collider_source_builds\\flash41923\\tools\\collider_server.py",
+    base: "Based on: Spun off from ARGON_8474 on Oct 25 at 01:29 AM",
+    desc: "Your favorite Argon app look (Color-Lit Side Nav + Regular Translucent Glass) and favorite Premium Market (Top Category Pills + Active/Preview button next to Unlock $4.99)."
+  },
+  {
+    id: "flash_5180",
+    lane: "lane-favorites",
+    title: "3. FLASH_5180 (Oct 24 Spin-Off of 8474)",
+    port: 5180,
+    url: "http://127.0.0.1:5180",
+    configUrl: "http://127.0.0.1:5180/config",
+    github: "https://github.com/Davidebri1/collider_flutter_ARGON_8474/tree/argon-oct24-5180",
+    folder: "C:\\Users\\D\\Documents\\collider_flutter_FLASH_5180",
+    serverPath: "C:\\Users\\D\\Documents\\collider_flutter_FLASH_5180\\tools\\collider_server.py",
+    base: "Based on: Copied from ARGON_8474 on Oct 24 at 12:52 PM",
+    desc: "Argon's untouched Oct 24 Premium Market (single 'Unlock $4.99' button before 'Active/Preview' was added in 41923) + responsive 1280x720 / 800x600 autofit."
+  },
+  {
+    id: "mimo_8901",
+    lane: "lane-feature-branches",
+    title: "4. Mimo (collider-source-Mimo — Conveyor CoverFlow Origin)",
+    port: 8901,
+    url: "http://127.0.0.1:8901",
+    configUrl: "http://127.0.0.1:8901/five-whys.md",
+    github: "https://github.com/Davidebri1/collider_flutter_ARGON_8474/tree/mimo-conveyor-coverflow",
+    folder: "C:\\Users\\D\\Documents\\collider-source-Mimo",
+    serverPath: "C:\\Users\\D\\Documents\\collider-source-Mimo\\lib\\features\\theme\\premium_theme_market_view.dart",
+    base: "Based on: Uncommitted 19-file overhaul on collider-source.git (Oct 27)",
+    desc: "Where the continuous-pos Conveyor CoverFlow + dual cross-faded _AmbientLayer video stack + 7-icon ModuleRail + BrowserBus + Light-Glass Smart Gen were authored."
+  },
+  {
+    id: "commandcode_8090",
+    lane: "lane-feature-branches",
+    title: "5. CommandCode (?home=alt Alternative Home + R41 Fix)",
+    port: 8090,
+    url: "http://127.0.0.1:8090/?home=alt",
+    configUrl: "http://127.0.0.1:8090/config",
+    github: "https://github.com/Davidebri1/collider-commandcode",
+    folder: "C:\\Users\\D\\Documents\\collider_commandcode",
+    serverPath: "C:\\Users\\D\\Documents\\collider_commandcode\\tools\\collider_server.py",
+    base: "Based on: Branched from CLAUDE_20261020 (Oct 23–30)",
+    desc: "Features the ?home=alt Alternative Home Screen draft (_AltHomeView), R41 live consensus exclusion recompute when branching/excluding models, and R53 warm highlight."
+  },
+  {
+    id: "opus_8480",
+    lane: "lane-feature-branches",
+    title: "6. Session 8480 Opus (Voice + SSE + ResearchDoc + VideoPlayer)",
+    port: 8480,
+    url: "http://127.0.0.1:8480",
+    configUrl: "http://127.0.0.1:8480/config",
+    github: "https://github.com/Davidebri1/collider_flutter_ARGON_8474/tree/session-8480-opus",
+    folder: "C:\\Users\\D\\Documents\\collider_flutter__CLAUDE_live-models-consensus_20260927",
+    serverPath: "C:\\Users\\D\\Documents\\collider_flutter__CLAUDE_live-models-consensus_20260927\\tools\\collider_server.py",
+    base: "Based on: Claude live-models-consensus + dirty working tree",
+    desc: "Added Web Speech voice input (lib/core/voice/), ResearchDocument widget, SSE streaming, custom video player (Figma row 19), and Grok Imagine Discover Market."
+  },
+  {
+    id: "deepseek_8473",
+    lane: "lane-feature-branches",
+    title: "7. Session 8473 (Reorderable /config Form Experiment)",
+    port: 8473,
+    url: "http://127.0.0.1:8473/config",
+    configUrl: "http://127.0.0.1:8473/config",
+    github: "https://github.com/Davidebri1/collider_flutter_ARGON_8474/tree/session-8473-config",
+    folder: "C:\\Users\\D\\Documents\\collider_flutter__DEEPSEEK-V4.1-FLASH_config-form-reorderable_20261023",
+    serverPath: "C:\\Users\\D\\Documents\\collider_flutter__DEEPSEEK-V4.1-FLASH_config-form-reorderable_20261023\\tools\\collider_server.py",
+    base: "Based on: Session 8473 (Oct 23)",
+    desc: "Project folder specifically built for the reorderable /config form experiment (served at http://127.0.0.1:8473/config by tools/collider_server.py)."
+  },
+  {
+    id: "argon_8474",
+    lane: "lane-baselines",
+    title: "8. ARGON_8474 (Oct 27 Overwritten State — Session 37418)",
+    port: 8474,
+    url: "http://127.0.0.1:8474",
+    configUrl: "http://127.0.0.1:8474/configurator.html",
+    github: "https://github.com/Davidebri1/collider_flutter_ARGON_8474",
+    folder: "C:\\Users\\D\\Documents\\collider_flutter_ARGON_8474",
+    serverPath: "C:\\Users\\D\\Documents\\collider_flutter_ARGON_8474\\tools\\collider_server.py",
+    base: "Based on: Original Argon folder after Oct 27 overwrite",
+    desc: "Current working folder of 8474 after Oct 27 overwrite replaced Top Category Pills and Color-Lit Side Nav with grey icon rail and top MusicWidget."
+  },
+  {
+    id: "claude_20261020",
+    lane: "lane-baselines",
+    title: "9. CLAUDE_20261020 (Oct 20 Claude Baseline)",
+    port: 8020,
+    url: "http://127.0.0.1:8020",
+    configUrl: "http://127.0.0.1:8020/config",
+    github: "https://github.com/Davidebri1/collider-flutter-claude",
+    folder: "C:\\Users\\D\\Documents\\collider_flutter_CLAUDE_20261020",
+    serverPath: "C:\\Users\\D\\Documents\\collider_flutter_CLAUDE_20261020\\tools\\collider_server.py",
+    base: "Parent of all collider_flutter_* folders (8474, 6420, 5180, 41923, commandcode)",
+    desc: "Original Oct 20 Claude baseline with Consensus Agent.md, Smart Gen spec rows, online /config form, and unified glass Ticker."
+  },
+  {
+    id: "v920_oct31",
+    lane: "lane-baselines",
+    title: "10. v9.2.0 Oct 31 Deploy (gh_v920o1 & collider-source_v9_2_0)",
+    port: 9201,
+    url: "http://127.0.0.1:9201",
+    configUrl: "http://127.0.0.1:9203",
+    github: "https://github.com/Davidebri1/collider-source/tree/deploy/v920o1",
+    folder: "C:\\Users\\D\\Documents\\collider_source_builds\\gh_v920o1",
+    serverPath: "C:\\Users\\D\\Documents\\collider-source_v9_2_0\\lib\\main.dart",
+    base: "Based on: collider-source.git Oct 30–31 release train",
+    desc: "Separate architecture from CLAUDE_20261020: FigmaStage scaling, Riverpod/Provider SmartGenStore, square 1:1 CoverFlow with _CardPoseTween, offline deep links."
+  },
+  {
+    id: "live_916h",
+    lane: "lane-baselines",
+    title: "11. v9.1.6h Live Baseline (collider_source_builds\\live_916h)",
+    port: 9160,
+    url: "http://127.0.0.1:9160",
+    configUrl: "http://127.0.0.1:9203",
+    github: "https://github.com/Davidebri1/collider-source/tree/collider-9.1.6h-live",
+    folder: "C:\\Users\\D\\Documents\\collider_source_builds\\live_916h",
+    serverPath: "C:\\Users\\D\\Documents\\collider_source_builds\\live_916h\\lib\\main.dart",
+    base: "Based on: collider-source.git v9.1.6h (cf0d986)",
+    desc: "The v9.1.6h live baseline compared in the Oct 31 Evidence Review (48px blurred placeholders, Grok Imagine Discover, Figma Smart Gen workspace)."
+  },
+  {
+    id: "restore_live_9202",
+    lane: "lane-baselines",
+    title: "12. Cursor Restore-Live-Screens (restore_live + Oct 31 Review)",
+    port: 9202,
+    url: "http://127.0.0.1:9202",
+    configUrl: "http://127.0.0.1:9203",
+    github: "https://github.com/Davidebri1/collider-source/tree/cursor/restore-live-screens-78be",
+    folder: "C:\\Users\\D\\Documents\\collider_source_builds\\restore_live",
+    serverPath: "C:\\Users\\D\\Documents\\Collider_Review_2026-10-30\\index.html",
+    base: "Based on: Cursor Oct 28–31 restoration branch",
+    desc: "Restores v9.1.6h screen geometry onto v9.2.0. Click 'Review Report' to view the Oct 31 Evidence Review (http://127.0.0.1:9203/)."
+  }
+];
+
+let currentScene = "/?drawer=premium";
+let slotProjects = ["argon_6420", "flash_41923", "mimo_8901"];
+
+function renderSlot(slotIdx) {
+  const pid = slotProjects[slotIdx];
+  const p = PROJECTS.find(x => x.id === pid) || PROJECTS[0];
+  const slotEl = document.getElementById("slot-" + slotIdx);
+  let targetUrl = p.url;
+  if (p.id !== "mimo_8901") {
+    const base = p.url.split("?")[0].replace(/\/config$/, "");
+    targetUrl = base + currentScene;
+  }
+  slotEl.innerHTML = `
+    <div class="slot-bar">
+      <span><strong>Slot ${String.fromCharCode(65 + slotIdx)}:</strong> ${p.title}</span>
+      <div style="display:flex;gap:6px;">
+        <a href="${targetUrl}" target="_blank">Open Tab ↗</a>
+        <a href="${p.configUrl}" target="_blank">/config ⚙</a>
+        <a href="${p.github}" target="_blank">GitHub ⌥</a>
+      </div>
+    </div>
+    <iframe class="slot-iframe" src="${targetUrl}"></iframe>
+  `;
+}
+
+function renderAllSlots() {
+  renderSlot(0);
+  renderSlot(1);
+  renderSlot(2);
+}
+
+function setGlobalScene(scene) {
+  currentScene = scene;
+  document.querySelectorAll(".scene-btn").forEach(b => b.classList.remove("active"));
+  event.target.classList.add("active");
+  renderAllSlots();
+}
+
+function createCard(p) {
+  const el = document.createElement("div");
+  el.className = "p-card";
+  el.draggable = true;
+  el.id = "card-" + p.id;
+  el.ondragstart = (ev) => {
+    ev.dataTransfer.setData("text/plain", p.id);
+  };
+  el.innerHTML = `
+    <div class="p-head">
+      <div class="p-title">${p.title}</div>
+      <div class="p-port">:${p.port}</div>
+    </div>
+    <div class="p-base">${p.base}</div>
+    <div class="p-desc">${p.desc}</div>
+    <div class="p-path">Folder: ${p.folder}<br>Server: ${p.serverPath}</div>
+    <div class="p-actions">
+      <a class="btn primary" href="${p.url}" target="_blank">Launch App ↗</a>
+      <a class="btn purple" href="${p.configUrl}" target="_blank">Open /config ⚙</a>
+      <a class="btn green" href="${p.github}" target="_blank">GitHub ⌥</a>
+      <button class="btn" onclick="loadIntoSlot('${p.id}', 0)">→ Slot A</button>
+      <button class="btn" onclick="loadIntoSlot('${p.id}', 1)">→ Slot B</button>
+      <button class="btn" onclick="loadIntoSlot('${p.id}', 2)">→ Slot C</button>
+    </div>
+  `;
+  return el;
+}
+
+function initKanban() {
+  PROJECTS.forEach(p => {
+    const lane = document.getElementById(p.lane);
+    if (lane) lane.appendChild(createCard(p));
+  });
+}
+
+function allowDrop(ev) {
+  ev.preventDefault();
+  ev.currentTarget.classList.add("drag-over");
+}
+
+function leaveDrop(ev) {
+  ev.currentTarget.classList.remove("drag-over");
+}
+
+function dropToSlot(ev, slotIdx) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove("drag-over");
+  const pid = ev.dataTransfer.getData("text/plain");
+  if (pid) {
+    slotProjects[slotIdx] = pid;
+    renderSlot(slotIdx);
+  }
+}
+
+function loadIntoSlot(pid, slotIdx) {
+  slotProjects[slotIdx] = pid;
+  renderSlot(slotIdx);
+}
+
+function dropToLane(ev, laneId) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove("drag-over");
+  const pid = ev.dataTransfer.getData("text/plain");
+  const card = document.getElementById("card-" + pid);
+  if (card) {
+    document.getElementById(laneId).appendChild(card);
+  }
+}
+
+initKanban();
+renderAllSlots();
+</script>
+</body>
+</html>

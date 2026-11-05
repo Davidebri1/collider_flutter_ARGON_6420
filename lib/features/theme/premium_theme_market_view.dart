@@ -16,12 +16,7 @@ import '../../models/theme_def.dart';
 import 'theme_living_media.dart';
 import 'theme_pack_store.dart';
 
-/// Premium Theme Market.
-/// - CoverFlow cards render in true 9:16 vertical portrait aspect ratio.
-/// - Completely pristine live wallpaper artwork: zero overlaid icons, play buttons, or scrubbers.
-/// - Browsing/dragging in the marketplace updates only the preview card and ambient audio preview;
-///   the room's living background wallpaper is NOT mutated until the user commits it (PRD R29/R32).
-/// - Instant 1-tap "Set Wallpaper" action: no price barrier or fake checkout gating in test mode.
+/// Premium Theme Market — 3D CoverFlow showcase with spatial reflections, track preview wheel, and store unlock.
 class PremiumThemeMarketView extends StatefulWidget {
   final WallpaperTheme currentTheme;
   final ValueChanged<WallpaperTheme> onApplyTheme;
@@ -41,12 +36,31 @@ class PremiumThemeMarketView extends StatefulWidget {
 }
 
 class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with SingleTickerProviderStateMixin {
-  // App.tsx state
   String _query = '';
+  String _activeTag = 'All Themes';
+  final Set<int> _disabledTracks = {};
   List<WallpaperTheme> _shown = const [];
-  int _index = 0; // unbounded: the row goes round, so the theme is _shown[_index mod length]
+  int _index = 0;
 
-  // CoverFlow.tsx state
+  static const _categoryTags = [
+    'All Themes',
+    'Spatial Rooms',
+    'Nature & Sea',
+    'Sci-Fi & Cosmos',
+    'Architecture',
+  ];
+
+  static bool _matchesTag(WallpaperTheme t, String tag) {
+    if (tag == 'All Themes') return true;
+    final n = t.name.toLowerCase();
+    return switch (tag) {
+      'Nature & Sea' => n.contains('sea') || n.contains('ocean') || n.contains('forest') || n.contains('rain') || n.contains('mountain') || n.contains('beach') || n.contains('aurora') || n.contains('water'),
+      'Sci-Fi & Cosmos' => n.contains('nebula') || n.contains('space') || n.contains('cyber') || n.contains('galaxy') || n.contains('star') || n.contains('neon') || n.contains('orbit') || n.contains('moon'),
+      'Architecture' => n.contains('villa') || n.contains('loft') || n.contains('tokyo') || n.contains('city') || n.contains('sanctuary') || n.contains('temple') || n.contains('studio') || n.contains('hall'),
+      _ => true, // Spatial Rooms matches curated spatial scenes
+    };
+  }
+
   bool _dragging = false;
   double _dragStart = 0, _dragOffset = 0, _velocity = 0;
   int _lastDragTime = 0;
@@ -54,7 +68,8 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
   double _from = 0, _to = 0;
   final FocusNode _keys = FocusNode();
   final Map<int, LiveFrames> _live = {};
-  int _track = 0; // the preview track in focus
+  int _track = 0;
+  bool _buying = false;
 
   static const _ease = Cubic(0.23, 1, 0.32, 1);
 
@@ -92,12 +107,10 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
     if (mounted) setState(() {});
   }
 
-  // ---------------------------------------------------------------- App.tsx: loading and search
-
   Widget _empty() {
     if (!ThemeCloud.instance.failed) {
       return const Center(
-        child: SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF9CA3AF))),
+        child: CupertinoActivityIndicator(radius: 14, color: Color(0xFF9CA3AF)),
       );
     }
     return Center(
@@ -118,10 +131,19 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
   }
 
   void _reload() {
-    final all = WallpaperCatalog.premiumThemes;
+    // Deduplicate by title so consecutive identical theme names never clutter the CoverFlow carousel
+    final rawAll = WallpaperCatalog.premiumThemes;
+    final seenNames = <String>{};
+    final all = <WallpaperTheme>[
+      for (final t in rawAll)
+        if (seenNames.add(t.name.toLowerCase().trim())) t,
+    ];
     ThemePackStore.instance.loadPrices(all);
     final q = _query.trim().toLowerCase();
-    var found = q.isEmpty ? all : all.where((t) => t.name.toLowerCase().contains(q) || t.id.contains(q)).toList();
+    var found = all.where((t) {
+      final matchesQ = q.isEmpty || t.name.toLowerCase().contains(q) || t.id.contains(q);
+      return matchesQ && _matchesTag(t, _activeTag);
+    }).toList();
     if (found.isEmpty) found = all;
     final keep = _selected?.id;
     setState(() {
@@ -131,7 +153,10 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
       _from = _to = _index.toDouble();
       _dropFrames();
     });
-    if (_selected != null) WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted && _selected != null) widget.onPreviewTheme(_selected!); });
+    final s = _selected;
+    if (s != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onPreviewTheme(s));
+    }
   }
 
   Timer? _search;
@@ -151,11 +176,14 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
     _reload();
   }
 
-  // ---------------------------------------------------------------- CoverFlow.tsx: moving
-
   void _select(int i) {
     if (_shown.isEmpty || (i == _index && !_dragging)) return;
-    _from = _pos + (_dragging ? -_dragOffset / 100 : 0);
+    final n = _shown.length;
+    var startPos = _pos + (_dragging ? -_dragOffset / 114.0 : 0.0);
+    if (n > 1) {
+      startPos += n * ((i.toDouble() - startPos) / n).roundToDouble();
+    }
+    _from = startPos;
     _to = i.toDouble();
     final moved = i != _index;
     _index = i;
@@ -227,8 +255,6 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
     return KeyEventResult.handled;
   }
 
-  // ---------------------------------------------------------------- Player.tsx
-
   void _playSong(WallpaperTheme t) {
     final p = MusicPlayer.instance;
     if (t.tracks.isEmpty) {
@@ -246,21 +272,63 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
     _playSong(t);
   }
 
-  // ---------------------------------------------------------------- live covers
-
   ValueNotifier<ui.Image?>? _framesFor(int i, WallpaperTheme t) {
-    if ((i - _index).abs() > 0 || t.videoPath == null) return null;
-    return (_live[i] ??= LiveFrames(themeMediaUrl(t.videoPath!), fps: 20)).frame;
+    if (i != _index || t.videoPath == null) return null;
+    return (_live[i] ??= LiveFrames(themeMediaUrl(t.videoPath!), width: 720, fps: 24)).frame;
   }
 
   void _dropFrames() {
-    final gone = _live.keys.where((k) => (k - _index).abs() > 0).toList();
+    final gone = _live.keys.where((k) => k != _index).toList();
     for (final k in gone) {
       _live.remove(k)?.dispose();
     }
   }
 
-  // ---------------------------------------------------------------- layout (App.tsx)
+  Widget _buildCategoryPills({required bool isMobile}) {
+    final list = ListView.separated(
+      scrollDirection: Axis.horizontal,
+      shrinkWrap: true,
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 0),
+      itemCount: _categoryTags.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 8),
+      itemBuilder: (_, idx) {
+        final tag = _categoryTags[idx];
+        final sel = tag == _activeTag;
+        return VPress(
+          onTap: () {
+            setState(() => _activeTag = tag);
+            _reload();
+          },
+          child: AnimatedContainer(
+            duration: VMotion.fast,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: sel ? VColors.accentBlue.withValues(alpha: 0.38) : VColors.glassElevated,
+              borderRadius: BorderRadius.circular(VRadius.full),
+              border: Border.all(
+                color: sel ? VColors.accentBlue.withValues(alpha: 0.85) : VColors.borderLight,
+                width: sel ? 1.0 : 0.6,
+              ),
+              boxShadow: sel ? VShadow.emissive(VColors.accentBlue, intensity: 0.65, radius: 14) : null,
+            ),
+            child: Text(
+              tag,
+              style: VType.caption(
+                color: sel ? Colors.white : VColors.textSecondary,
+                weight: sel ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    return SizedBox(
+      height: 34,
+      child: isMobile ? EdgeFade(axis: Axis.horizontal, fadeHeight: 20, child: list) : list,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,9 +341,7 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Tapping the room closes the market.
           Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: widget.onClose)),
-          // The source's floor: faint perspective lighting along lower half
           Positioned(
             left: 0,
             right: 0,
@@ -289,7 +355,11 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
                   ..rotateX(60 * math.pi / 180),
                 child: const DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Color(0x05FFFFFF), Color(0x00FFFFFF)]),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Color(0x05FFFFFF), Color(0x00FFFFFF)],
+                    ),
                   ),
                 ),
               ),
@@ -298,48 +368,94 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
           SafeArea(
             child: Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Center(child: _SearchBar(onSearch: _onSearch, onClear: _clearSearch)),
-                ),
+                if (isMobile) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 8, 16, 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 236),
+                          child: _SearchBar(onSearch: _onSearch, onClear: _clearSearch),
+                        ),
+                        const SizedBox(width: 8),
+                        VCircleButton(
+                          icon: Icons.close_rounded,
+                          size: 32,
+                          tooltip: 'Close',
+                          floating: true,
+                          onTap: widget.onClose,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: _buildCategoryPills(isMobile: true),
+                  ),
+                ] else
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 6),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Flexible(child: _buildCategoryPills(isMobile: false)),
+                        const SizedBox(width: 16),
+                        SizedBox(
+                          width: (size.width * 0.28).clamp(240.0, 360.0),
+                          child: _SearchBar(onSearch: _onSearch, onClear: _clearSearch),
+                        ),
+                        const SizedBox(width: 12),
+                        VCircleButton(
+                          icon: Icons.close_rounded,
+                          size: 34,
+                          tooltip: 'Close',
+                          floating: true,
+                          onTap: widget.onClose,
+                        ),
+                      ],
+                    ),
+                  ),
                 Expanded(
                   child: _shown.isEmpty
                       ? _empty()
                       : LayoutBuilder(
                           builder: (context, box) {
                             final availH = box.maxHeight;
-                            final compactH = availH < 780;
-                            final coverH = (availH * 0.44).clamp(240.0, 360.0);
-                            final gapTitle = (availH * 0.025).clamp(10.0, 24.0);
-                            final gapTracks = (availH * 0.02).clamp(10.0, 18.0);
-                            return SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              padding: EdgeInsets.fromLTRB(isMobile ? 16 : 32, 0, isMobile ? 16 : 32, 20),
-                              child: Column(
-                                children: [
-                                  _coverFlow(isMobile, size.width, coverH: coverH, compactH: compactH),
-                                  if (t != null) ...[
-                                    SizedBox(height: gapTitle),
-                                    Text(t.name,
+                            final compactH = availH < 680;
+                            final coverH = (availH - 180.0).clamp(184.0, isMobile ? 248.0 : 316.0);
+                            return Center(
+                              child: SingleChildScrollView(
+                                physics: const BouncingScrollPhysics(),
+                                padding: EdgeInsets.fromLTRB(isMobile ? 44 : 32, 4, isMobile ? 12 : 32, 72),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _coverFlow(isMobile, size.width - (isMobile ? 56 : 0), coverH: coverH, compactH: compactH),
+                                    if (t != null) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        t.name,
                                         textAlign: TextAlign.center,
                                         style: VType.title2(color: Colors.white).copyWith(
-                                          fontWeight: FontWeight.w300,
-                                          shadows: const [Shadow(color: Color(0x80000000), blurRadius: 8, offset: Offset(0, 2))],
-                                        )),
-                                    if (t.tracks.isNotEmpty) ...[SizedBox(height: gapTracks), _tracks(t, compactH: compactH)],
+                                          fontWeight: FontWeight.w600,
+                                          shadows: const [Shadow(color: Color(0x99000000), blurRadius: 8, offset: Offset(0, 2))],
+                                        ),
+                                      ),
+                                      if (t.tracks.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        _tracks(t, compactH: true),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      Center(child: _apply(t)),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             );
                           },
                         ),
                 ),
-                // Prominent "Set Wallpaper" action button
-                if (t != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 76),
-                    child: Center(child: _apply(t)),
-                  ),
               ],
             ),
           ),
@@ -348,17 +464,23 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
     );
   }
 
-  // ---------------------------------------------------------------- CoverFlow.tsx: drawing
-
   Widget _coverFlow(bool isMobile, double width, {double coverH = 340, bool compactH = false}) {
-    // True 9:16 Vertical Portrait Cards
-    final cardH = isMobile ? 220.0 : (compactH ? 250.0 : 280.0);
-    final cardW = cardH * (9.0 / 16.0);
-    final spacing = isMobile ? 95.0 : 125.0;
-    final drag = _dragging ? _dragOffset / 100 : 0.0;
+    final cardW = isMobile ? 136.0 : (compactH ? 156.0 : 172.0);
+    final cardH = isMobile ? 214.0 : (compactH ? 242.0 : 268.0);
+    final spacing = isMobile ? 114.0 : 152.0;
+    final drag = _dragging ? _dragOffset / spacing : 0.0;
     final pos = _pos - drag;
-    final reach = math.min(math.min(4, (width / spacing / 2).ceil() + 1), (_shown.length - 1) ~/ 2);
-    final order = [for (int k = -reach; k <= reach; k++) _index + k]..sort((a, b) => (b - pos).abs().compareTo((a - pos).abs()));
+    final centerSlot = pos.round();
+    final reach = math.min(6, math.max(1, (_shown.length - 1) ~/ 2));
+    final order = [
+      for (int k = -reach; k <= reach; k++)
+        if (((centerSlot + k) - pos).abs() <= 6.0) centerSlot + k
+    ]..sort((a, b) {
+        final da = (a - pos).abs();
+        final db = (b - pos).abs();
+        final cmp = db.compareTo(da);
+        return cmp != 0 ? cmp : a.compareTo(b);
+      });
     return SizedBox(
       height: coverH,
       width: double.infinity,
@@ -368,34 +490,42 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
         onHorizontalDragUpdate: (d) => _dragMoveTo(d.globalPosition.dx),
         onHorizontalDragEnd: (_) => _dragEnd(),
         onHorizontalDragCancel: _dragEnd,
-        child: Stack(
-          clipBehavior: Clip.none,
+        child: Transform(
           alignment: Alignment.center,
-          children: [
-            for (final i in order) _cover(i, i - pos, cardW, cardH, spacing),
-          ],
+          transform: Matrix4.identity()..setEntry(3, 2, -1 / 1500),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              for (final i in order) _cover(i, i - pos, cardW, cardH, spacing),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  double _conveyorOpacity(double a) {
+    if (a <= 3.0) return 1.0;
+    if (a <= 4.0) return 0.95;
+    if (a <= 5.0) return 0.85;
+    return math.max(0.0, 0.85 * (1.0 - (a - 5.0)));
+  }
+
   Widget _cover(int i, double offset, double cardW, double cardH, double spacing) {
     final t = _at(i);
-    final center = offset.abs() < 0.1;
-    final d = offset.abs();
-    final m = Matrix4.identity()..setEntry(3, 2, 1 / 1500);
-    if (center) {
-      m
-        ..translate(0.0, 0.0, -280.0)
-        ..scale(1.25, 1.25, 1.25);
-    } else {
-      final k = math.max(0.78, 1.10 - d * 0.04);
-      m
-        ..translate(offset * spacing, 0.0, 80.0 * d)
-        ..rotateY((offset < 0 ? 55 : -55) * math.pi / 180)
-        ..scale(k, k, 1.0);
-    }
-    const opacity = 1.0;
+    final a = offset.abs();
+    final sign = offset < 0 ? -1.0 : 1.0;
+    final sideScale = math.max(0.78, 1.04 - a * 0.05);
+    final s = a < 1.0 ? 1.18 + (sideScale - 1.18) * a : sideScale;
+    final tx = offset * spacing;
+    final tz = -140.0 * math.min(a, 1.0) - 45.0 * math.max(0.0, a - 1.0);
+    final ryDeg = -sign * 52.0 * math.min(a, 1.0);
+    final m = Matrix4.identity()
+      ..translate(tx, 0.0, tz)
+      ..rotateY(ryDeg * math.pi / 180.0)
+      ..scale(s, s, 1.0);
+    final opacity = _conveyorOpacity(a);
     final isCurrent = i == _index;
     final frames = _framesFor(i, t);
     Widget picture() => frames == null
@@ -417,27 +547,25 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // 100% Pristine 9:16 Artwork Container: ZERO OVERLAID ICONS OR PLAY BUTTONS
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: const [
-                        BoxShadow(color: Color(0xE6000000), blurRadius: 40, spreadRadius: -8, offset: Offset(0, 20)),
-                        BoxShadow(color: Color(0x99000000), blurRadius: 24, offset: Offset(0, 6)),
+                        BoxShadow(color: Color(0xE6000000), blurRadius: 50, spreadRadius: -12, offset: Offset(0, 25)),
+                        BoxShadow(color: Color(0x99000000), blurRadius: 32, offset: Offset(0, 8)),
                       ],
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       child: Stack(fit: StackFit.expand, children: [
                         picture(),
-                        // Subtle specular sheen across the face
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [Color(0x1AFFFFFF), Color(0x08FFFFFF), Color(0x00FFFFFF), Color(0x05000000), Color(0x14000000)],
+                              colors: [Color(0x1FFFFFFF), Color(0x0AFFFFFF), Color(0x00FFFFFF), Color(0x05000000), Color(0x28000000)],
                               stops: [0, 0.25, 0.5, 0.75, 1],
                             ),
                           ),
@@ -450,21 +578,20 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
                   child: IgnorePointer(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withValues(alpha: isCurrent ? 0.35 : 0.12), width: isCurrent ? 1.5 : 1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withValues(alpha: isCurrent ? 0.45 : 0.16), width: isCurrent ? 1.1 : 0.7),
                       ),
                     ),
                   ),
                 ),
-                // Floor reflection under the 9:16 card
                 Positioned(
                   top: cardH,
                   left: 0,
                   width: cardW,
-                  height: cardH,
+                  height: cardH * 0.45,
                   child: IgnorePointer(
                     child: Opacity(
-                      opacity: isCurrent ? 0.85 : 0.65,
+                      opacity: isCurrent ? 0.65 : 0.45,
                       child: Transform(
                         alignment: Alignment.center,
                         transform: Matrix4.diagonal3Values(1, -1, 1),
@@ -473,26 +600,17 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
                           shaderCallback: (r) => const LinearGradient(
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
-                            colors: [Color(0xBFFFFFFF), Color(0x66FFFFFF), Color(0x26FFFFFF), Color(0x00FFFFFF)],
-                            stops: [0, 0.2, 0.4, 0.6],
+                            colors: [Color(0xBFFFFFFF), Color(0x55FFFFFF), Color(0x00FFFFFF)],
+                            stops: [0, 0.35, 0.85],
                           ).createShader(r),
-                          child: ColorFiltered(
-                            colorFilter: const ColorFilter.matrix(<double>[
-                              0.78, 0, 0, 0, -38.25,
-                              0, 0.78, 0, 0, -38.25,
-                              0, 0, 0.78, 0, -38.25,
-                              0, 0, 0, 1, 0,
-                            ]),
-                            child: ClipRRect(borderRadius: BorderRadius.circular(12), child: picture()),
-                          ),
+                          child: ClipRRect(borderRadius: BorderRadius.circular(16), child: picture()),
                         ),
                       ),
                     ),
                   ),
                 ),
-                // Floor highlight
                 Positioned(
-                  top: cardH + 6,
+                  top: cardH + 4,
                   left: 0,
                   width: cardW,
                   height: 12,
@@ -513,22 +631,6 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
                     ),
                   ),
                 ),
-                if (isCurrent) ...[
-                  Positioned(
-                    top: 0,
-                    left: cardW / 4,
-                    right: cardW / 4,
-                    height: 4,
-                    child: IgnorePointer(
-                      child: ImageFiltered(
-                        imageFilter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(color: const Color(0x33FFFFFF), borderRadius: BorderRadius.circular(999)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -537,7 +639,6 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
     );
   }
 
-  /// The pack's preview tracks. The one playing (or chosen) sits in focus; changing pack fades one set into the next.
   Widget _tracks(WallpaperTheme t, {bool compactH = false}) {
     final p = MusicPlayer.instance;
     return AnimatedSwitcher(
@@ -552,6 +653,14 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
           return _TrackWheel(
             tracks: t.tracks,
             selected: (mine ? p.index! : _track).clamp(0, t.tracks.length - 1),
+            disabledTracks: _disabledTracks,
+            onToggleTrackEnabled: (i) => setState(() {
+              if (_disabledTracks.contains(i)) {
+                _disabledTracks.remove(i);
+              } else if (_disabledTracks.length < t.tracks.length - 1) {
+                _disabledTracks.add(i);
+              }
+            }),
             onSelect: (i) => _focusTrack(t, i),
             compactH: compactH,
           );
@@ -560,25 +669,103 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
     );
   }
 
-  /// Direct 1-tap "Set Wallpaper" action without fake paywalls or bypass gates.
   Widget _apply(WallpaperTheme t) {
+    final store = ThemePackStore.instance;
+    final price = store.priceFor(t);
+    final isLocked = price != null && !store.isUnlocked(t.id);
+
+    if (isLocked) {
+      final isCurrentlyPreviewed = widget.currentTheme.id == t.id;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Direct Set Wallpaper bypass button: sets the wallpaper immediately without unlocking account status
+          VPress(
+            onTap: () {
+              widget.onPreviewTheme(t);
+              widget.onApplyTheme(t);
+            },
+            child: AnimatedContainer(
+              duration: VMotion.fast,
+              height: 38,
+              constraints: const BoxConstraints(minWidth: 132),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              decoration: BoxDecoration(
+                color: VColors.accentBlue,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0x66FFFFFF), width: 0.8),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x4D0A84FF), blurRadius: 16, offset: Offset(0, 4)),
+                ],
+              ),
+              child: Center(
+                widthFactor: 1,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text('Set Wallpaper', style: VType.callout(color: Colors.white, weight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Production IAP Paywall Button
+          VPress(
+            onTap: () async {
+              if (_buying) return;
+              setState(() => _buying = true);
+              final outcome = await store.buy(t);
+              if (!mounted) return;
+              setState(() => _buying = false);
+              await PurchaseNotice.show(context, outcome, bypassed: store.bypass);
+              if (outcome == PurchaseOutcome.purchased && mounted) widget.onApplyTheme(t);
+            },
+            child: AnimatedContainer(
+              duration: VMotion.fast,
+              height: 38,
+              constraints: const BoxConstraints(minWidth: 112),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: VColors.glassElevated,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0x4DFFFFFF), width: 0.8),
+              ),
+              child: Center(
+                widthFactor: 1,
+                child: _buying
+                    ? const CupertinoActivityIndicator(color: Colors.white, radius: 8)
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.lock_outline_rounded, size: 15, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text('Unlock $price', style: VType.callout(color: Colors.white, weight: FontWeight.w600)),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return VPress(
       onTap: () => widget.onApplyTheme(t),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
           color: VColors.accentBlue,
-          borderRadius: BorderRadius.circular(VRadius.full),
-          boxShadow: const [
-            BoxShadow(color: Color(0x4D0A84FF), blurRadius: 16, offset: Offset(0, 4)),
-          ],
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_rounded, size: 16, color: Colors.white),
-            const SizedBox(width: 8),
-            Text('Set Wallpaper', style: VType.callout(color: Colors.white, weight: FontWeight.w600)),
+            const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 6),
+            Text('Apply Theme', style: VType.callout(color: Colors.white, weight: FontWeight.w600)),
           ],
         ),
       ),
@@ -586,22 +773,28 @@ class _PremiumThemeMarketViewState extends State<PremiumThemeMarketView> with Si
   }
 }
 
-/// Five rows on a wheel that goes round, so every track of the pack is always in view. The row in focus is sharp and
-/// full size at the centre; each step away is smaller, fainter and more blurred, and the top and bottom edges dissolve.
-/// A tap or a vertical drag brings a row to the centre.
 class _TrackWheel extends StatefulWidget {
   final List<AmbientTrack> tracks;
   final int selected;
+  final Set<int> disabledTracks;
+  final ValueChanged<int> onToggleTrackEnabled;
   final ValueChanged<int> onSelect;
   final bool compactH;
-  const _TrackWheel({required this.tracks, required this.selected, required this.onSelect, this.compactH = false});
+  const _TrackWheel({
+    required this.tracks,
+    required this.selected,
+    required this.disabledTracks,
+    required this.onToggleTrackEnabled,
+    required this.onSelect,
+    this.compactH = false,
+  });
 
   @override
   State<_TrackWheel> createState() => _TrackWheelState();
 }
 
 class _TrackWheelState extends State<_TrackWheel> with SingleTickerProviderStateMixin {
-  double get _rowH => widget.compactH ? 28.0 : 36.0;
+  double get _rowH => widget.compactH ? 28.0 : 34.0;
   int get _rows => widget.compactH ? 3 : 5;
   late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 560));
   double _from = 0, _to = 0, _drag = 0;
@@ -630,6 +823,7 @@ class _TrackWheelState extends State<_TrackWheel> with SingleTickerProviderState
 
   @override
   void dispose() {
+    _c.dispose();
     super.dispose();
   }
 
@@ -647,62 +841,93 @@ class _TrackWheelState extends State<_TrackWheel> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) {
     final pos = _pos;
-    final base = VType.callout(color: Colors.white, weight: FontWeight.w400).copyWith(fontSize: widget.compactH ? 15 : 17, height: 1.2);
+    final base = VType.callout(color: Colors.white, weight: FontWeight.w500).copyWith(fontSize: widget.compactH ? 14 : 16, height: 1.2);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onVerticalDragStart: (_) => setState(() {
         _to = pos;
         _drag = 0;
         _dragging = true;
+        _c.stop();
       }),
       onVerticalDragUpdate: (d) => setState(() => _drag += d.delta.dy),
       onVerticalDragEnd: (d) {
-        final velocity = d.primaryVelocity ?? 0;
-        final delta = -(_drag / _rowH) - (velocity / 800);
-        _dragging = false;
-        _glide((pos + delta).round());
-        widget.onSelect(_wrap((pos + delta).round()));
+        final flung = pos - (d.primaryVelocity ?? 0) / 1800;
+        setState(() => _dragging = false);
+        _from = _to = pos;
+        _choose(flung.round());
       },
-      child: SizedBox(
-        height: _rows * _rowH,
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (r) => const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0x00FFFFFF), Colors.white, Colors.white, Color(0x00FFFFFF)],
-            stops: [0, 0.25, 0.75, 1],
-          ).createShader(r),
-          child: Stack(
-            children: [
-              for (int k = -(_rows ~/ 2) - 1; k <= (_rows ~/ 2) + 1; k++) _row(k, pos, base),
-            ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 340),
+        child: SizedBox(
+          height: _rowH * _rows,
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (r) => const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x00FFFFFF), Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
+              stops: [0, 0.3, 0.7, 1],
+            ).createShader(r),
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                for (int i = 0; i < _n; i++) _row(i, _offset(i, pos), pos, base),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _row(int k, double pos, TextStyle base) {
-    final centerRow = pos.round();
-    final rowIdx = centerRow + k;
-    final offset = rowIdx - pos;
-    final d = offset.abs();
-    final track = widget.tracks[_wrap(rowIdx)];
-    Widget text = Text(
-      track.title,
-      textAlign: TextAlign.center,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: base.copyWith(
-        fontWeight: d < 0.3 ? FontWeight.w500 : FontWeight.w300,
-        color: Colors.white,
-        shadows: const [Shadow(color: Color(0x80000000), blurRadius: 8, offset: Offset(0, 2))],
-      ),
+  double _offset(int i, double pos) {
+    final half = _n / 2;
+    return ((i - pos + half) % _n + _n) % _n - half;
+  }
+
+  Widget _row(int i, double offset, double pos, TextStyle base) {
+    final d = offset.abs().clamp(0.0, 2.5);
+    final focus = (1 - d).clamp(0.0, 1.0);
+    final enabled = !widget.disabledTracks.contains(i);
+    final isCenter = d < 0.35;
+    Widget rowContent = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () => widget.onToggleTrackEnabled(i),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Icon(
+              enabled ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              size: 14,
+              color: enabled ? (isCenter ? VColors.accentBlue : VColors.textSecondary) : VColors.textTertiary,
+            ),
+          ),
+        ),
+        Flexible(
+          child: Text(
+            widget.tracks[i].title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: base.copyWith(
+              color: enabled ? Colors.white : VColors.textTertiary,
+              decoration: enabled ? null : TextDecoration.lineThrough,
+              fontWeight: FontWeight.lerp(FontWeight.w400, FontWeight.w600, focus),
+              shadows: const [Shadow(color: Color(0x80000000), blurRadius: 8, offset: Offset(0, 2))],
+            ),
+          ),
+        ),
+        if (isCenter) ...[
+          const SizedBox(width: 6),
+          const Icon(Icons.graphic_eq_rounded, size: 14, color: VColors.accentBlue),
+        ],
+      ],
     );
     if (d > 0.04) {
       final sigma = 1.6 * d;
-      text = ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal), child: text);
+      rowContent = ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.decal), child: rowContent);
     }
     return Positioned(
       left: 0,
@@ -714,7 +939,7 @@ class _TrackWheelState extends State<_TrackWheel> with SingleTickerProviderState
         child: Center(
           child: Opacity(
             opacity: (1 - 0.34 * d).clamp(0.15, 1.0),
-            child: Transform.scale(scale: 1 - 0.1 * d, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: text)),
+            child: Transform.scale(scale: 1 - 0.1 * d, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: rowContent)),
           ),
         ),
       ),
@@ -722,7 +947,6 @@ class _TrackWheelState extends State<_TrackWheel> with SingleTickerProviderState
   }
 }
 
-/// A theme's poster from the bucket or pre-decoded cache.
 class _Poster extends StatelessWidget {
   final WallpaperTheme theme;
   const _Poster({required this.theme});
@@ -730,7 +954,9 @@ class _Poster extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const empty = DecoratedBox(
-      decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF030712), Colors.black])),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF030712), Colors.black]),
+      ),
     );
     if (theme.assetPath.isEmpty) return empty;
     return ListenableBuilder(
@@ -778,52 +1004,18 @@ class _SearchBarState extends State<_SearchBar> {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 448),
-      child: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0xFF374151)),
-          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0x66000000), Color(0x05FFFFFF)]),
-          boxShadow: const [BoxShadow(color: Color(0x0DFFFFFF), blurRadius: 2, offset: Offset(0, 1))],
-        ),
-        child: Row(
-          children: [
-            const SizedBox(width: 12),
-            const Icon(Icons.search_rounded, size: 16, color: Color(0xFF9CA3AF)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _c,
-                cursorColor: Colors.white70,
-                style: VType.callout(color: Colors.white, weight: FontWeight.w300).copyWith(fontSize: 11),
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  hintStyle: VType.callout(color: const Color(0xFF6B7280), weight: FontWeight.w300).copyWith(fontSize: 11),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onChanged: (v) {
-                  setState(() {});
-                  widget.onSearch(v);
-                },
-                onSubmitted: (v) => widget.onSearch(v),
-              ),
-            ),
-            if (_c.text.isNotEmpty)
-              VPress(
-                onTap: () {
-                  _c.clear();
-                  setState(() {});
-                  widget.onClear();
-                },
-                child: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Icon(Icons.close_rounded, size: 16, color: Color(0xFF9CA3AF))),
-              )
-            else
-              const SizedBox(width: 12),
-          ],
-        ),
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: VSearchField(
+        controller: _c,
+        hint: 'Search premium themes...',
+        onChanged: (v) {
+          setState(() {});
+          if (v.trim().isEmpty) {
+            widget.onClear();
+          } else {
+            widget.onSearch(v);
+          }
+        },
       ),
     );
   }

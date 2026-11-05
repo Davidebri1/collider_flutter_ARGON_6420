@@ -242,22 +242,21 @@ def next_row(name=None, search=None):
         return rs[_turn[k]]
 
 
-# Every NVIDIA chat model that answered on this account.
+# Every NVIDIA chat model that answered on this account (probed & verified live).
 ROSTER = [
-    {"id": "nvidia/nemotron-3-super-120b-a12b", "label": "Nemotron 3 Super", "short": "NS3", "provider": "NVIDIA", "via": "NVIDIA", "color": "#76B900"},
-    {"id": "nvidia/nemotron-3-ultra-550b-a55b", "label": "Nemotron 3 Ultra", "short": "NU3", "provider": "NVIDIA", "via": "NVIDIA", "color": "#A3E635"},
-    {"id": "nvidia/nemotron-3.5-lightning-30b-a3b", "label": "Nemotron 3.5 Lightning", "short": "NL35", "provider": "NVIDIA", "via": "NVIDIA", "color": "#4ADE80"},
-    {"id": "z-ai/glm-5.3", "label": "GLM 5.3", "short": "GLM", "provider": "Z.ai", "via": "NVIDIA", "color": "#60A5FA"},
-    {"id": "z-ai/glm-5.3-flash", "label": "GLM 5.3 Flash", "short": "GLMF", "provider": "Z.ai", "via": "NVIDIA", "color": "#93C5FD"},
+    {"id": "nvidia/nemotron-3.5-bolt-e4b", "label": "Nemotron 3.5 Bolt", "short": "NBLT", "provider": "NVIDIA", "via": "NVIDIA", "color": "#76B900"},
+    {"id": "nvidia/nemotron-3.5-super-vl-120b-a12b", "label": "Nemotron 3.5 Super", "short": "N35S", "provider": "NVIDIA", "via": "NVIDIA", "color": "#22C55E"},
+    {"id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "label": "Nemotron 3 Nano", "short": "N3N", "provider": "NVIDIA", "via": "NVIDIA", "color": "#34D399"},
+    {"id": "nvidia/nemotron-3-ultra-550b-a55b", "label": "Nemotron 3 Ultra", "short": "N3U", "provider": "NVIDIA", "via": "NVIDIA", "color": "#4ADE80"},
+    {"id": "mistralai/mistral-large-4-1t-a52b", "label": "Mistral Large 4", "short": "ML4", "provider": "Mistral", "via": "NVIDIA", "color": "#FB923C"},
+    {"id": "minimaxai/minimax-m3.1-flash", "label": "MiniMax M3.1 Flash", "short": "MM31", "provider": "MiniMax", "via": "NVIDIA", "color": "#F472B6"},
+    {"id": "nvidia/nemotron-3.5-lightning-30b-a3b", "label": "Nemotron 3.5 Lightning", "short": "N35L", "provider": "NVIDIA", "via": "NVIDIA", "color": "#A3E635"},
     {"id": "google/gemma-4-31b-it", "label": "Gemma 4 31B", "short": "G4", "provider": "Google", "via": "NVIDIA", "color": "#FBBF24"},
-    {"id": "openai/gpt-oss-20b", "label": "GPT OSS 20B", "short": "OSS", "provider": "OpenAI", "via": "NVIDIA", "color": "#34D399"},
-    {"id": "meta/muse-glimmer-30b", "label": "Muse Glimmer 30B", "short": "MG", "provider": "Meta", "via": "NVIDIA", "color": "#818CF8"},
-    {"id": "deepseek-ai/deepseek-v4.1-flash", "label": "DeepSeek V4.1 Flash", "short": "DS4", "provider": "DeepSeek", "via": "NVIDIA", "color": "#38BDF8"},
-    {"id": "meta/llama-3.2-90b-vision-instruct", "label": "Llama 3.2 90B Vision", "short": "L90", "provider": "Meta", "via": "NVIDIA", "color": "#A78BFA"},
-    {"id": "meta/llama-3.2-11b-vision-instruct", "label": "Llama 3.2 11B Vision", "short": "L11", "provider": "Meta", "via": "NVIDIA", "color": "#C4B5FD"},
-    # Mistral Nemotron and Kimi K3 were removed on 2026-10-19: NVIDIA answers both with HTTP 410 Gone (retired).
+    {"id": "meta/llama-3.2-90b-vision-instruct", "label": "Llama 3.2 90B Vision", "short": "L90", "provider": "Meta", "via": "NVIDIA", "color": "#818CF8"},
+    {"id": "meta/muse-glimmer-30b", "label": "Muse Glimmer 30B", "short": "MG30", "provider": "Meta", "via": "NVIDIA", "color": "#A78BFA"},
+    {"id": "stepfun-ai/step-5-preview", "label": "Step 5 Preview", "short": "S5", "provider": "StepFun", "via": "NVIDIA", "color": "#38BDF8"},
 ]
-CONSENSUS_AGENT = "google/gemma-4-31b-it"
+CONSENSUS_AGENT = "nvidia/nemotron-3.5-bolt-e4b"
 LABEL = {m["id"]: m["label"] for m in ROSTER}
 _BUILT_IN = len(ROSTER)
 _COLORS = ["#F59E0B", "#EC4899", "#14B8A6", "#8B5CF6", "#EF4444", "#22D3EE", "#84CC16", "#F97316"]
@@ -584,15 +583,19 @@ def stream_model(model, messages, max_tokens, on_text=None, timeout=None):
                     if on_text:
                         on_text("".join(parts))
     except Exception as e:
+        if parts:
+            text = sanitize_model_output("".join(parts))
+            if text:
+                return text
         if "timed out" in str(e) and not parts:
             raise RuntimeError("no answer in time")
-        if isinstance(e, urllib.error.HTTPError) and e.code == 410:
-            raise RuntimeError("retired by the provider")
+        if isinstance(e, urllib.error.HTTPError) and e.code in (404, 410):
+            raise RuntimeError(f"HTTP {e.code}")
         if not parts:
             print("stream failed, asking without streaming", model, str(e)[:TUNING["error_chars"]])
-            return call_model(model, messages, max_tokens, timeout)
+            return call_model(model, messages, max_tokens, min(timeout, 22))
     text = sanitize_model_output("".join(parts))
-    return text or call_model(model, messages, max_tokens, timeout)
+    return text or call_model(model, messages, max_tokens, min(timeout, 22))
 
 
 def sources_block(sources):
@@ -604,9 +607,9 @@ def sources_block(sources):
 
 # ---------------- Consensus agent (Consensus Map v3: a headcount of essences) ----------------
 # Primary agent answers in plain JSON; the reasoning models are backups with room to think.
-AGENT_CHAIN = [CONSENSUS_AGENT, "nvidia/nemotron-3-super-120b-a12b", "z-ai/glm-5.3"]
-AGENT_PROMPT = 'Inputs:\n-User\'s prompt\n-response messages\n\nFrom this\nFill the following fields:\nConsensus Ratio: number of responses with the same sentiment / number of total responses\nConsensus Summary: For each response message, use the prompt message to derive need and message intent. This will simplify each message to its base minimal distinction/sentiment; this is the actionable portion of the message. Resolve democratically by counting the number of duplicates of each unique sentiment. The sentiment with the biggest count is the consensus summary verbatim.\n\nFor each response:\nCalculate, from the full response text and its service to the observed need, the depth (aka length) of the logical chain in the message. This count should include explicit and implicit logical chains. Explicit logical chains are all sequential clarifications/simplifications. They extend logic, not activity. And they serve the purpose by providing capability and independence to the prompter. Accuracy (not precision) never becomes a factor, as logic is independent of facts. In fact, logic forms facts. It can never be wrong or even evaluated on such a basis. Only facts can, trivia.\n\n1. Logical chain: If you fall, THEN it\'s not your fault\n2. Not a logical chain: If you fall, THEN you can file a claim\n\n1 is a clarification of meaning and drives understanding and decision-making. 2 is giving instruction, which provides only procedure, not logic. No decision-making or simplification is offered.\n\nImplicit logical chains count as well. These are definitions, statements, stories, or any narrative element that directly support a logical conclusion. They can be evidentiary after the fact. Or preemptive, before the fact. The point will either immediately precede or supersede them. If not, the chain is broken, or adlibbing has delayed the expression of the point. It becomes obvious either way.\n\nYou can also count logical chains by simply reading until the next clause/sentence is not logically dependent on the previous. This extends beyond formatting so paragraphs and structure are irrelevant. An entire paragraph can be considered one logical chain if it is one narrative in service of one larger point: evidentiary, or it can be multiple logical chains if the depth of understanding is further developed within the paragraph. "Because," "Why," "Therefore," "Meaning," "Thus," and "therefore" are all contextual indicators but cannot be counted in a vacuum. This is why you derive intent first, based on the prompt message and its need, and you frame each response message in its purpose to serve that need. From there, you can resolve all logical clarifications because they appear as explanations and they provide rationale.\n\nYou will find that the count is not important. Only your definition and your ability to identify them are important. So whatever definition you create for a logical chain will hold up consistently, so long as it is legitimate in its observation of logic. Semantically counting words is not a legitimate observation of logic, by definition. Regex counts trivia. Logical chains count meaning.\n\nImplied logical chains are defined by their usage of a definition as a datum to demonstrate logic or provide clarification of a logical point\n\nImplied Logical Chain examples:\nLogical chain: \'A house is a structure. So..."\nLogical Chain: \'A house is a structure. A shed is a structure..."\nLogical chain: \'A house is a structure. It should be..."\nLogical Chain: \'A house is a structure. If you..."\nLogical Chain: [Implied need for definition] -> "A house is a structure."\nLogical chain: "A house is a structure. The streets are..."\n\nNot logical chains: definitions that are attached to no logical purpose\nNot a logical chain: \'A house is a structure.\'\nNot a logical chain: \'Because why?\' Regex search would count this as 2 logical chains. When in reality, in logical purpose, it is just two words with no intended purpose. It could be a quote. Or a question. Neither of which extends logic on its own or is a logical point.\n\nThe dictionary would be full of logical chains. But it has 0. Because the definitions exist outside of logical framing, aka need. But if you are playing Scrabble and you ask what the best word to make with your letters is, the meaning of the word (its existence) serves a logical need and therefore becomes a logical chain.\nIf you are reading a sentence in a document and you write a prompt asking for the meaning of a word, the intent is derived to be to support your need for understanding. Therefore, responses providing the meaning of a word are now considered logical chains, because the meaning of the word directly supports the prompt\'s derived intent. The prompt need not include the context of "reading a book," "I don\'t understand this word," or "I\'m playing Scrabble" to derive the intent and serve it. Logic is independent of context. Any request for definition or any derived need for definition directly supports the logical basis and counts as a chain. Which can be further extended by further explanation, even if not requested.\n\nCount the total logical chains (explicit + implicit) for each response message and provide the number in a format for this mapping. perhaps JSON, naming each claim by its source name, its indexed value, or its superficial callouts, as you choose to distinguish them. Identification as distinct observations is all that is necessary to be conveyed. Along with their max chain length. Max length is used to distinguish relevant and novel insight/clarification from repetitive, duplicated, or semantic insight. Technical definitions will never extend a logical chain beyond 1. Even if there are 100 of them. They can serve nothing more than immediate understanding on their own. To extend, they must attach to a bigger logical point, and that chain can of course continue on. Split chains don\'t exist. an apparent split, is logical clarification, and counts. It provides further definition and meaningful texture. Everything that furthers understanding is an additional logical chain. Not separate chains. There\'s one request, one chain. One prompt, one chain. One problem, one chain. Outside of that is ad libbing, theorizing, or ponderance. Unless these are requested, they cannot provide further understanding. They only show lack of understanding.\n\nAlso include in the logical chain length table a line for consensus summary and use the max length chain of all its members as its logical chain length value.\n\nIn the table, indicate which responses are grouped with which sentiments, and indicate the consensus sentiment\n\nAccuracy and confidence and all subjective interpretations of a response are irrelevant. You are only recording reality, not advising. This is what makes this objectively valuable and universally desired.\n\nRecap:\n\nProvide the following:\nConsensus Ratio\nConsensus Summary, as derived (unique actionable takeaway, sentiment, point, intent, summary)\nLogical Chain Length Table'
-AGENT_FORMAT = 'Reply with JSON only, in this shape, so the app can show it:\n{"need": "the need and intent derived from the prompt",\n "sentiments": {"R1": "...", "R2": "..."},\n "groups": [["R1", "R3"], ["R2"]],\n "consensus": "the consensus summary, verbatim",\n "chains": {"R1": 0, "R2": 0}}\nsentiments: each response\'s base minimal distinction/sentiment, at most {n} characters. Responses with the same sentiment have it word for word.\ngroups: the responses grouped with each sentiment.\nchains: each response\'s logical chain length.'
+AGENT_CHAIN = [CONSENSUS_AGENT, "nvidia/nemotron-3-ultra-550b-a55b", "mistralai/mistral-large-4-1t-a52b", "google/gemma-4-31b-it"]
+AGENT_PROMPT = "Inputs:\n-User's prompt\n-response messages\n\nDerive, for each response, the need and intent behind it, then reduce it to its base minimal distinction/sentiment: the actionable position it takes.\n\nGroup responses that take the SAME position, even when they word it differently. Two responses belong in one group when someone could act on either one and get the same thing.\n\nAccuracy and confidence and all subjective interpretations of a response are irrelevant. You are only recording reality, not advising."
+AGENT_FORMAT = 'Reply with JSON only, in this shape, so the app can show it:\n{"need": "the need and intent derived from the prompt message",\n "sentiments": {"R1": "...", "R2": "..."},\n "groups": [["R1", "R3"], ["R2"]],\n "consensus": "the consensus summary, verbatim",\n "chains": {"R1": 1, "R2": 1}}\nsentiments: each response\'s base minimal distinction/sentiment, at most {n} characters. Responses with the same sentiment have it word for word.\ngroups: the responses grouped with each sentiment.\nchains: each response\'s logical chain length.'
 
 
 def parse_json(text):
@@ -674,9 +677,12 @@ def plain(s):
 
 
 def self_essence_fallback(answer):
-    paras = [p.strip() for p in str(answer or "").strip().split("\n") if p.strip()]
+    paras = [plain(p).strip() for p in str(answer or "").strip().split("\n") if len(plain(p).strip()) >= 12]
+    if not paras:
+        paras = [plain(p).strip() for p in str(answer or "").strip().split("\n") if plain(p).strip()]
     target = paras[1] if len(paras) > 1 and len(paras[0]) <= TUNING["essence_short_line"] else (paras[0] if paras else "")
-    first = re.split(r"(?<=[.!?])\s", plain(target), maxsplit=1)[0]
+    parts = [s.strip() for s in re.split(r"(?<=[.!?])\s+", target) if len(s.strip()) >= 8]
+    first = parts[0] if parts else target
     return first[:TUNING["essence_fallback_chars"]]
 
 
@@ -885,10 +891,14 @@ def run_job(job, prior_threads=None):
         msgs = [{"role": "system", "content": own_system(mid) + system + ("\n\n" + src if src else "")}] + history_msgs + [{"role": "user", "content": asked}]
         def drafted(s):
             if job["results"][mid]["status"] == "pending":
-                job["results"][mid].update(text=draft_clean(s).strip())
+                cleaned_draft = draft_clean(s).strip()
+                draft_line = fit_words(self_essence_fallback(cleaned_draft), n) if cleaned_draft else ""
+                job["results"][mid].update(text=cleaned_draft, line=draft_line, essence=draft_line)
 
         try:
-            text, line = stream_model(mid, msgs, MAX_TOKENS.get(mode, 1200), drafted).strip(), ""
+            text = stream_model(mid, msgs, MAX_TOKENS.get(mode, 1200), drafted).strip()
+            ess = self_essence_fallback(text)
+            line = fit_words(ess, n) if ess else ""
             updated_thread = _sanitize_messages(history_msgs + [
                 {"role": "user", "content": prompt},
                 {"role": "assistant", "content": text},
@@ -896,6 +906,7 @@ def run_job(job, prior_threads=None):
             job["results"][mid].update(
                 status="done",
                 text=text,
+                essence=ess,
                 line=line,
                 messages=updated_thread,
                 ms=int((time.time() - t0) * 1000),
@@ -917,7 +928,11 @@ def run_job(job, prior_threads=None):
     cf.wait(futs, timeout=deadline)
     for m, r in job["results"].items():
         if r["status"] == "pending":
-            r.update(status="error", error="no answer in time")
+            if (r.get("text") or "").strip():
+                ess = self_essence_fallback(r["text"])
+                r.update(status="done", essence=ess, line=fit_words(ess, n) if ess else "")
+            else:
+                r.update(status="error", error="no answer in time")
     answers = {m: r["text"] for m, r in job["results"].items() if r["status"] == "done" and r["text"]}
     job["stage"] = "consensus"
     cons = run_consensus(prompt, answers, n) if answers else None
@@ -1174,8 +1189,8 @@ def _themes():
 # ---------------- Settings (Claude, 2026-10-20) ----------------
 # Every line that decides how the app answers lives in data\collider_config.json beside the exe, shown in the launch
 # window. The values below are only what a configuration starts with; from then on the file is what is read.
-DEADLINE = {"chat": 100, "internet": 120, "research": 180, "deep": 240}
-SILENCE = 45
+DEADLINE = {"chat": 28, "internet": 45, "research": 90, "deep": 150}
+SILENCE = 18
 SMARTGEN_PROMPT = 'Smart Gen holds projects, tasks, reminders, memories, and artifacts.\nCreates the item when the conversation already contains it, unless that item exists for the same project, type, and model. A timed reminder also lands on the calendar.\nWhen ongoing conversation modifies facts/dates of an existing task or project, Smart Gen automatically updates existing records rather than duplicating.\nArtifacts, reminders, tasks, projects, and memories can be bidirectionally attached and embedded in any combination.'
 SMARTGEN_FORMAT = 'Reply with JSON only, in this shape, so the app can file it:\n{"create": [{"type": "project | task | reminder | memory | artifact", "title": "...", "content": "...", "due": "date and time, or empty", "project": "..."}],\n "update": [{"id": "an existing item\'s id", "title": "...", "content": "...", "due": "..."}]}\nThe existing items are listed with their ids. Empty lists when the conversation contains no item.'
 # Every other number the server works by. These are the values it has always run on.
@@ -1386,7 +1401,7 @@ class Handler(SimpleHTTPRequestHandler):
         if p == "/api/themes":
             return self._json(themes())
         if p == "/api/store":
-            return self._json({"bypass": bool(CONFIG.get("store_bypass", True))})
+            return self._json({"bypass": bool(CONFIG.get("store_bypass", False))})
         if p.startswith("/api/stream/r/"):
             return self._sse(lambda: REPLIES.get(p.rsplit("/", 1)[-1]))
         if p.startswith("/api/stream/"):
@@ -1543,7 +1558,7 @@ class Handler(SimpleHTTPRequestHandler):
         from collider_form import FORM
         provs = CONFIG.get("providers", [])
         initial = {"host": "", "providers": provs, "themes": CONFIG.get("themes") or ccfg.THEMES,
-                   "bypass": bool(CONFIG.get("store_bypass", True)),
+                   "bypass": bool(CONFIG.get("store_bypass", False)),
                    "uses": [uses(r) if (r.get("key") or "").strip() else "Not read: no key" for r in provs],
                    "settings": {k: CONFIG[k] for k in SETTINGS if k in CONFIG}}
         html = FORM.replace("WHERE", json.dumps(ccfg.path(DATA))).replace("INITIAL", json.dumps(initial))
@@ -1554,7 +1569,7 @@ class Handler(SimpleHTTPRequestHandler):
         cfg = dict(CONFIG)
         cfg["providers"] = [r for r in b.get("providers", []) if any((r.get(k) or "").strip() for k in ("name", "endpoint", "key"))]
         cfg["themes"] = (b.get("themes") or "").strip() or ccfg.THEMES
-        cfg["store_bypass"] = bool(b.get("bypass", True))
+        cfg["store_bypass"] = bool(b.get("bypass", False))
         cfg.update(b.get("settings") or {})
         ccfg.save(DATA, cfg)
         CONFIG.clear()

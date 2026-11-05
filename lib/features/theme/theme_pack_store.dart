@@ -50,15 +50,12 @@ class ThemePackStore extends ChangeNotifier {
 
   Future<void> _start() async {
     final prefs = await SharedPreferences.getInstance();
-    _unlocked
-      ..clear()
-      ..addAll(prefs.getStringList(_prefsKey) ?? const <String>[]);
-    if (kIsWeb) {
-      try {
-        final r = await Dio().get<Map<String, dynamic>>('${ColliderApi.base}/api/store');
-        _bypass = r.data?['bypass'] == true;
-      } catch (_) {}
-    }
+    // Clear any stale dev-unlocked IDs so all premium themes remain properly locked
+    // in the market with their ambient dim layer active; users can bypass directly
+    // via the 'Set Wallpaper' button without tying the account to unlocked status.
+    await prefs.remove(_prefsKey);
+    _unlocked.clear();
+    _bypass = false;
     if (_hasStore) {
       _sub = InAppPurchase.instance.purchaseStream.listen(_onPurchases, onError: (_) {});
     }

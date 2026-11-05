@@ -356,8 +356,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
       final def = ModelRoster.byId(mid);
       if (def == null) return;
       final prev = _tickerItems.where((t) => t.modelDef.id == mid).toList();
-      final noLine = r.status == 'done' && r.line.isEmpty && !_lineFailed.contains(j.id);
-      final waiting = r.status == 'pending' || noLine;
+      final waiting = r.status == 'pending' && r.text.isEmpty;
       final serverConv = _messagesFromResult(j, mid, r);
       final usePrevConv = !restored && prev.isNotEmpty && prev.first.conversation.length > serverConv.length;
       final conv = usePrevConv
@@ -367,7 +366,12 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
                 TickerMessage(id: '${j.id}_draft_$mid', sender: 'model', text: r.text, timestamp: j.created),
             ]
           : serverConv;
-      final itemSummary = r.status == 'error' ? '' : (r.line.isNotEmpty ? r.line : _plain(r.essence));
+      final fallbackLine = r.text.isNotEmpty ? _plain(r.text.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => r.text)) : '';
+      final itemSummary = r.status == 'error'
+          ? ''
+          : (r.line.isNotEmpty
+              ? r.line
+              : (r.essence.isNotEmpty ? _plain(r.essence) : fallbackLine));
       items.add(TickerItem(
         modelDef: def,
         relativeTime: restored ? _ago(j.created) : 'just now',
@@ -1198,7 +1202,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
             child: ThemeLivingBackdrop(
               theme: _currentTheme,
               preferVideo: true,
-              builderAmbient: false,
+              builderAmbient: _activeDrawer == 'premium' && _locked(_currentTheme),
             ),
           ),
 

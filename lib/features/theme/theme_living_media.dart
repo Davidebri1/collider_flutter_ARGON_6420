@@ -31,7 +31,7 @@ class _ThemePosterImageState extends State<ThemePosterImage> {
   void initState() {
     super.initState();
     if (widget.theme.assetPath.isNotEmpty) {
-      ThemeBlurCache.instance.ensurePoster(widget.theme.assetPath); // a still needs no blurred copies (Claude, 2026-10-21)
+      ThemeBlurCache.instance.ensurePoster(widget.theme.assetPath);
     }
   }
 
@@ -55,9 +55,28 @@ class _ThemePosterImageState extends State<ThemePosterImage> {
         filterQuality: widget.filterQuality,
       );
     }
+    if (widget.theme.assetPath.startsWith('http')) {
+      return Image.network(
+        widget.theme.assetPath,
+        fit: widget.fit,
+        width: double.infinity,
+        height: double.infinity,
+        gaplessPlayback: true,
+        filterQuality: widget.filterQuality,
+        frameBuilder: widget.placeholder == null ? null : (_, child, frame, sync) => frame == null && !sync ? widget.placeholder! : child,
+        errorBuilder: (_, __, ___) =>
+            widget.placeholder ??
+            Container(
+              color: const Color(0xFF1A1B22),
+              child: const Icon(Icons.wallpaper_rounded, color: Colors.white38),
+            ),
+      );
+    }
     return Image.asset(
       widget.theme.assetPath,
       fit: widget.fit,
+      width: double.infinity,
+      height: double.infinity,
       gaplessPlayback: true,
       filterQuality: widget.filterQuality,
       frameBuilder: widget.placeholder == null ? null : (_, child, frame, sync) => frame == null && !sync ? widget.placeholder! : child,
@@ -246,25 +265,28 @@ class _ThemeLivingBackdropState extends State<ThemeLivingBackdrop> {
   @override
   Widget build(BuildContext context) {
     if (widget.builderAmbient) {
-      final cachedAmbientPoster = CachedThemeSurface(
-        assetPath: widget.theme.assetPath,
-        preset: ThemeBlurPreset.ambient,
+      final posterFallback = BuilderAmbientFilter.wrap(
+        ThemePosterImage(theme: widget.theme, filterQuality: FilterQuality.medium),
       );
       final f = _frames;
-      if (f == null) return cachedAmbientPoster;
-      // The live video frame through the same live look (Claude, 2026-10-23: each frame was copied and blurred again).
+      if (f == null) return posterFallback;
       return ValueListenableBuilder<ui.Image?>(
         valueListenable: f.frame,
         builder: (_, img, __) {
           if (img != null) {
             return ClipRect(
-              child: themeBlurLook(
-                ThemeBlurPreset.ambient,
-                RawImage(image: img, fit: BoxFit.cover, width: double.infinity, height: double.infinity, filterQuality: FilterQuality.medium),
+              child: BuilderAmbientFilter.wrap(
+                RawImage(
+                  image: img,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  filterQuality: FilterQuality.medium,
+                ),
               ),
             );
           }
-          return cachedAmbientPoster;
+          return posterFallback;
         },
       );
     }

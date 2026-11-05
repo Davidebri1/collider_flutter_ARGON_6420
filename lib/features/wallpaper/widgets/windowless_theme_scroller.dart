@@ -1,19 +1,16 @@
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 import 'package:material_ui/material_ui.dart';
 import '../../../models/theme_def.dart';
-import '../../../core/audio/music_player.dart';
 import '../../../core/media/theme_blur_cache.dart';
 import '../../../core/vision/vision_kit.dart';
 import '../../theme/theme_living_media.dart';
 import '../../theme/theme_pack_store.dart';
 
-/// Theme Gallery — Pure Spatial Artwork per VisionOS HIG & PRD R29/R42:
-/// - The central artwork is 100% PRISTINE, with ZERO overlaid controls, icons, play buttons, or scrubbers.
-/// - Sized in true 9:16 vertical mobile portrait aspect ratio.
-/// - Browsing/scrolling themes updates ONLY the preview card; the room's living background wallpaper
-///   does NOT swap until the user explicitly commits it via 'Set Wallpaper' or tapping the preview (PRD R29).
-/// - Floating VisionOS Top Ornament houses navigation & action, cleanly detached above the art.
+/// Theme Gallery — Pure Spatial 9:16 Portrait Card + Centered Thumbnail Strip:
+/// - Single razor-sharp 9:16 portrait preview card (no double-container blurry halo border).
+/// - No useless top edition strip (_LivePeek removed) and no goofy top ornament bar.
+/// - Clean cinematic title & Set Wallpaper action bar directly beneath the 9:16 card.
+/// - Dead-center horizontal thumbnail strip sized cleanly to the card width.
 class WindowlessThemeScroller extends StatefulWidget {
   final WallpaperTheme currentTheme;
   final ValueChanged<WallpaperTheme> onLivePreview;
@@ -38,14 +35,10 @@ class _WindowlessThemeScrollerState extends State<WindowlessThemeScroller> {
   late WallpaperTheme _previewed;
   final ScrollController _strip = ScrollController();
 
-  /// How far the gallery has been pulled up toward the live wallpapers: 0 at rest, 1 in focus.
-  double _pull = 0;
+  static const double _thumbH = 56.0;
+  static const double _thumbW = _thumbH * 9.0 / 16.0; // 31.5px 9:16 portrait thumbnail
+  static const double _gap = 8.0;
 
-  static const _thumbH = 56.0;
-  static const _thumbW = _thumbH * 9.0 / 16.0; // 9:16 portrait thumbnail
-  static const _gap = 6.0;
-
-  /// The free themes, then the live wallpapers that have been bought
   List<WallpaperTheme> get _themes => [
         ...WallpaperCatalog.freeThemes,
         for (final t in WallpaperCatalog.premiumThemes)
@@ -63,10 +56,6 @@ class _WindowlessThemeScrollerState extends State<WindowlessThemeScroller> {
         setState(() {});
       }
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final i = _themes.indexWhere((t) => t.id == _previewed.id);
-      if (i > 0 && _strip.hasClients) _strip.jumpTo(i * (_thumbW + _gap));
-    });
   }
 
   @override
@@ -79,10 +68,11 @@ class _WindowlessThemeScrollerState extends State<WindowlessThemeScroller> {
     if (t.id == _previewed.id) return;
     ThemeBlurCache.instance.setActiveTheme(t);
     setState(() => _previewed = t);
-    // PRD R29: Theme Gallery does NOT swap the background while browsing.
-    // Changing theme changes the preview card only; background changes on explicit commit.
     final i = _themes.indexWhere((x) => x.id == t.id);
-    if (_strip.hasClients) _strip.animateTo(i * (_thumbW + _gap), duration: VMotion.base, curve: Curves.easeOutCubic);
+    if (i >= 0 && _strip.hasClients && _strip.position.maxScrollExtent > 0) {
+      final target = (i * (_thumbW + _gap)).clamp(0.0, _strip.position.maxScrollExtent);
+      _strip.animateTo(target, duration: VMotion.base, curve: Curves.easeOutCubic);
+    }
   }
 
   void _step(int by) {
@@ -93,109 +83,102 @@ class _WindowlessThemeScrollerState extends State<WindowlessThemeScroller> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final isMobile = size.width < 768;
 
     // True 9:16 Vertical Mobile Portrait Aspect Ratio
-    final pictureH = (size.height * 0.44).clamp(280.0, 420.0);
+    final pictureH = (size.height * (isMobile ? 0.50 : 0.54)).clamp(300.0, 460.0);
     final pictureW = pictureH * (9.0 / 16.0);
-    final k = pictureW / 400.0;
-    final stripW = math.min(size.width - 32, 340.0);
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onVerticalDragUpdate: (d) => setState(() => _pull = (_pull - d.delta.dy / 150).clamp(0.0, 1.0)),
+      onTap: widget.onCancel,
       onVerticalDragEnd: (d) {
-        final go = (d.primaryVelocity ?? 0) < -300 || _pull > 0.55;
-        setState(() => _pull = 0);
-        if (go) widget.onUpgradeTier();
+        if ((d.primaryVelocity ?? 0) < -300) widget.onUpgradeTier();
       },
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // The live wallpapers seen above the gallery, fading upward
-            SizedBox(width: math.max(pictureW, 260.0), child: _LivePeek(pull: _pull, onTap: widget.onUpgradeTier)),
-            const SizedBox(height: 10),
+        child: GestureDetector(
+          onTap: () {}, // Consume taps inside the gallery column so background tap-away doesn't fire
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Single razor-sharp 9:16 portrait preview card — NO blurry outer halo box
+              SizedBox(
+                width: pictureW,
+                height: pictureH,
+                child: _picture(),
+              ),
+              const SizedBox(height: 16),
 
-            // Floating Top Ornament for Navigation & Action (VisionOS Spatial HIG)
-            // Cleanly separated ABOVE the artwork; zero occlusion on the wallpaper itself.
-            VOrnament(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  VCircleButton(
-                    icon: Icons.close_rounded,
-                    size: 32,
-                    tooltip: 'Close',
-                    onTap: widget.onCancel,
-                  ),
-                  const SizedBox(width: 14),
-                  Text(
-                    _previewed.name,
-                    style: VType.title2().copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(width: 14),
-                  VPress(
-                    onTap: () => widget.onConfirmTheme(_previewed),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: VColors.accentBlue,
-                        borderRadius: BorderRadius.circular(VRadius.full),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.check_rounded, size: 14, color: Colors.white),
-                          const SizedBox(width: 5),
-                          Text('Set Wallpaper', style: VType.caption(color: Colors.white, weight: FontWeight.w600)),
-                        ],
+              // 2. Clean cinematic title + Set Wallpaper capsule directly under the 9:16 card
+              SizedBox(
+                width: math.max(pictureW, 256.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _previewed.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: VType.title2(color: Colors.white).copyWith(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
+                          shadows: const [
+                            Shadow(color: Color(0xCC000000), blurRadius: 12, offset: Offset(0, 2)),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    VPress(
+                      onTap: () => widget.onConfirmTheme(_previewed),
+                      tooltip: 'Set Wallpaper',
+                      child: Container(
+                        height: 34,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(VRadius.full),
+                          boxShadow: const [
+                            BoxShadow(color: Color(0x66000000), blurRadius: 14, offset: Offset(0, 4)),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_rounded, size: 15, color: Colors.black),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Set Wallpaper',
+                              style: VType.caption(color: Colors.black, weight: FontWeight.w700).copyWith(fontSize: 12.5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-            // Central Pure Artwork Container: 100% PRISTINE, ZERO OVERLAID ICONS OR CONTROLS
-            SizedBox(
-              width: pictureW,
-              height: pictureH,
-              child: _picture(k),
-            ),
-
-            const SizedBox(height: 14),
-
-            // Thumbnails strip with soft edge fades
-            SizedBox(width: stripW, height: _thumbH, child: _thumbnails(stripW)),
-          ],
+              // 3. Dead-center thumbnail strip constrained cleanly to the gallery column
+              SizedBox(
+                width: math.max(pictureW, 256.0),
+                height: _thumbH,
+                child: _thumbnails(math.max(pictureW, 256.0)),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// The picture itself: 100% pure artwork, backed by its ambient optical glow.
-  /// Strictly ZERO overlaid controls, play buttons, progress bars, or icons.
-  Widget _picture(double k) {
-    final radius = math.max(25 * k, 16.0);
-    final image = ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, anim) {
-          final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-          return FadeTransition(opacity: curved, child: child);
-        },
-        child: SizedBox.expand(
-          key: ValueKey(_previewed.assetPath),
-          child: ThemePosterImage(theme: _previewed, filterQuality: FilterQuality.high),
-        ),
-      ),
-    );
-
+  Widget _picture() {
+    const radius = 22.0;
     return GestureDetector(
       onTap: () => widget.onConfirmTheme(_previewed),
       onHorizontalDragEnd: (d) {
@@ -203,189 +186,148 @@ class _WindowlessThemeScrollerState extends State<WindowlessThemeScroller> {
         if (v < -150) _step(1);
         if (v > 150) _step(-1);
       },
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Ambient optical glow behind the pure art
-          Positioned(
-            left: -24 * k,
-            right: -24 * k,
-            top: -24 * k,
-            bottom: -24 * k,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: 0.85,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radius + 16),
-                  child: CachedThemeSurface(
-                    assetPath: _previewed.assetPath,
-                    preset: ThemeBlurPreset.galleryGlow,
-                  ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: const [
+            BoxShadow(color: Color(0xCC000000), blurRadius: 42, spreadRadius: -6, offset: Offset(0, 22)),
+            BoxShadow(color: Color(0x80000000), blurRadius: 18, offset: Offset(0, 6)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
+                  child: child,
+                ),
+                child: SizedBox.expand(
+                  key: ValueKey(_previewed.assetPath),
+                  child: ThemePosterImage(theme: _previewed, filterQuality: FilterQuality.high),
                 ),
               ),
-            ),
-          ),
-
-          // 100% Pure Artwork — Zero Icons, Zero Scrubbers, Zero Play Controls
-          Positioned.fill(child: image),
-        ],
-      ),
-    );
-  }
-
-  /// Clean thumbnail strip with silver selected indicator (PRD R29).
-  Widget _thumbnails(double stripW) {
-    final themes = _themes;
-    return ShaderMask(
-      blendMode: BlendMode.dstIn,
-      shaderCallback: (r) => const LinearGradient(
-        colors: [Color(0x00FFFFFF), Colors.white, Colors.white, Color(0x00FFFFFF)],
-        stops: [0, 0.15, 0.85, 1.0],
-      ).createShader(r),
-      child: ListView.separated(
-        controller: _strip,
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: (stripW - _thumbW) / 2),
-        itemCount: themes.length,
-        separatorBuilder: (_, __) => const SizedBox(width: _gap),
-        itemBuilder: (_, i) {
-          final t = themes[i];
-          final sel = t.id == _previewed.id;
-          return VPress(
-            onTap: () => _select(t),
-            tooltip: t.name,
-            child: AnimatedContainer(
-              duration: VMotion.base,
-              curve: Curves.easeOutCubic,
-              width: sel ? _thumbW + 6 : _thumbW,
-              height: _thumbH,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                // PRD R29: Selected state stays silver
-                border: Border.all(
-                  color: sel ? const Color(0xFFC0C0C0) : Colors.white.withValues(alpha: 0.12),
-                  width: sel ? 1.8 : 0.8,
-                ),
-                boxShadow: sel ? const [BoxShadow(color: Color(0x66FFFFFF), blurRadius: 10)] : null,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: Image.asset(t.assetPath, height: _thumbH, fit: BoxFit.cover, filterQuality: FilterQuality.medium),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// The live wallpapers as they appear from the gallery below them.
-class _LivePeek extends StatefulWidget {
-  final double pull;
-  final VoidCallback onTap;
-  const _LivePeek({required this.pull, required this.onTap});
-
-  @override
-  State<_LivePeek> createState() => _LivePeekState();
-}
-
-class _LivePeekState extends State<_LivePeek> with SingleTickerProviderStateMixin {
-  late final AnimationController _drift = AnimationController(
-    vsync: this,
-    duration: Duration(seconds: 12 * WallpaperCatalog.premiumThemes.length.clamp(2, 60)),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _drift.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final live = WallpaperCatalog.premiumThemes;
-    if (live.isEmpty) return const SizedBox.shrink();
-    const w = 54.0, gap = 8.0, full = 96.0, rest = 48.0;
-    final span = live.length * (w + gap);
-    final p = widget.pull;
-    final soft = 1.7 * (1 - p);
-
-    Widget cards(double offset, double width) {
-      final first = (offset / (w + gap)).floor();
-      final n = (width / (w + gap)).ceil() + 2;
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          for (var k = first; k < first + n; k++)
-            Positioned(
-              left: k * (w + gap) - offset,
-              bottom: 0,
-              width: w,
-              height: full,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: Image.asset(live[k % live.length].assetPath, width: w, height: full, fit: BoxFit.cover, filterQuality: FilterQuality.medium),
-              ),
-            ),
-        ],
-      );
-    }
-
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: SizedBox(
-        height: rest + (full - rest) * p,
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (r) => LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color.fromRGBO(255, 255, 255, p), Colors.white],
-            stops: const [0, 0.8],
-          ).createShader(r),
-          child: EdgeFadeHorizontal(
-            fade: 28,
-            child: ClipRect(
-              child: RepaintBoundary(
-                child: ImageFiltered(
-                  enabled: soft > 0.05,
-                  imageFilter: ImageFilter.blur(sigmaX: soft, sigmaY: soft, tileMode: TileMode.decal),
-                  child: LayoutBuilder(
-                    builder: (_, box) => AnimatedBuilder(
-                      animation: _drift,
-                      builder: (_, __) => cards(_drift.value * span, box.maxWidth),
+              // Subtle top-to-bottom cinematic vignette for depth
+              const IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x22000000), Color(0x00000000), Color(0x00000000), Color(0x33000000)],
+                      stops: [0.0, 0.22, 0.75, 1.0],
                     ),
                   ),
                 ),
               ),
-            ),
+              // Subtle top-left close button inside the card corner
+              Positioned(
+                left: 12,
+                top: 12,
+                child: VCircleButton(
+                  icon: Icons.close_rounded,
+                  size: 32,
+                  floating: true,
+                  tooltip: 'Close',
+                  onTap: widget.onCancel,
+                ),
+              ),
+              // Crisp 1px specular glass rim on the card edge
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(radius),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.24), width: 1.0),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-}
 
-/// Horizontal edge fade for thumbnail strips.
-class EdgeFadeHorizontal extends StatelessWidget {
-  final Widget child;
-  final double fade;
-  const EdgeFadeHorizontal({super.key, required this.child, this.fade = 16});
+  /// Dead-center thumbnail strip: when the thumbnails fit within [maxW], they sit centered in a Row;
+  /// when more themes are unlocked than fit, they scroll horizontally inside a centered viewport.
+  Widget _thumbnails(double maxW) {
+    final themes = _themes;
+    if (themes.isEmpty) return const SizedBox.shrink();
 
-  @override
-  Widget build(BuildContext context) {
+    Widget buildThumb(WallpaperTheme t) {
+      final sel = t.id == _previewed.id;
+      return VPress(
+        onTap: () => _select(t),
+        tooltip: t.name,
+        child: AnimatedContainer(
+          duration: VMotion.base,
+          curve: Curves.easeOutCubic,
+          width: sel ? _thumbW + 8 : _thumbW,
+          height: _thumbH,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: sel ? Colors.white : Colors.white.withValues(alpha: 0.20),
+              width: sel ? 1.8 : 0.8,
+            ),
+            boxShadow: sel
+                ? const [BoxShadow(color: Color(0x55FFFFFF), blurRadius: 10)]
+                : const [BoxShadow(color: Color(0x66000000), blurRadius: 8, offset: Offset(0, 3))],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6.5),
+            child: Image.asset(
+              t.assetPath,
+              height: _thumbH,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final totalW = themes.length * _thumbW + 8 + math.max(0, themes.length - 1) * _gap;
+    if (totalW <= maxW) {
+      return Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (int i = 0; i < themes.length; i++) ...[
+              if (i > 0) const SizedBox(width: _gap),
+              buildThumb(themes[i]),
+            ],
+          ],
+        ),
+      );
+    }
+
     return ShaderMask(
       blendMode: BlendMode.dstIn,
-      shaderCallback: (r) {
-        final f = (fade / (r.width <= 0 ? 1 : r.width)).clamp(0.0, 0.3);
-        return LinearGradient(
-          colors: const [Color(0x00FFFFFF), Colors.white, Colors.white, Color(0x00FFFFFF)],
-          stops: [0, f, 1 - f, 1],
-        ).createShader(r);
-      },
-      child: child,
+      shaderCallback: (r) => const LinearGradient(
+        colors: [Color(0x00FFFFFF), Colors.white, Colors.white, Color(0x00FFFFFF)],
+        stops: [0.0, 0.08, 0.92, 1.0],
+      ).createShader(r),
+      child: Center(
+        child: ListView.separated(
+          controller: _strip,
+          scrollDirection: Axis.horizontal,
+          shrinkWrap: true,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          itemCount: themes.length,
+          separatorBuilder: (_, __) => const SizedBox(width: _gap),
+          itemBuilder: (_, i) => buildThumb(themes[i]),
+        ),
+      ),
     );
   }
 }

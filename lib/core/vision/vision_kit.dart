@@ -519,59 +519,92 @@ class VOrnamentRail extends StatelessWidget {
     required this.items,
     required this.active,
     required this.onSelect,
-    this.size = 36,
+    this.size = 38,
     this.dim = const {},
   });
 
+  String _shortLabel(String s) {
+    final parts = s.trim().split(RegExp(r'\s+'));
+    if (parts.length == 1) return s;
+    if (s.toLowerCase().startsWith('new ')) return 'New';
+    if (s.toLowerCase().startsWith('my ')) return parts.last;
+    if (s.toLowerCase().contains('premium')) return 'Premium';
+    if (s.toLowerCase().contains('theme')) return 'Themes';
+    if (s.toLowerCase().contains('all ')) return 'All';
+    return parts.first;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // visionOS tab bar (Claude, 2026-10-23): a glass capsule beside the window; each place its glyph on a disc, its name
-    // under it, the chosen one lit. 11 points, one word to a line.
-    return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(VRadius.full), boxShadow: VShadow.ornament),
-      child: VGlass(
-        material: VMaterial.elevated,
-        radius: VRadius.full,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (int i = 0; i < items.length; i++) ...[
-              if (i > 0) const SizedBox(height: 10),
-              Semantics(
-                button: true,
-                label: items[i].label,
-                child: VPress(
-                  onTap: dim.contains(i) ? null : () => onSelect(i),
-                  child: SizedBox(
-                    width: 56,
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+    final compact = size <= 38;
+    final btnSize = compact ? 36.0 : 42.0;
+    return VGlass(
+      material: VMaterial.elevated,
+      radius: VRadius.full,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 7, vertical: compact ? 8 : 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) SizedBox(height: compact ? 8 : 10),
+            Semantics(
+              button: true,
+              label: items[i].label,
+              child: VPress(
+                tooltip: items[i].label,
+                onTap: dim.contains(i) ? null : () => onSelect(i),
+                child: SizedBox(
+                  width: compact ? 44 : 54,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       AnimatedContainer(
                         duration: VMotion.fast,
-                        width: 44,
-                        height: 44,
+                        width: btnSize,
+                        height: btnSize,
                         alignment: Alignment.center,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: i == active ? VColors.fillActive : VColors.fillCell),
-                        child: Icon(items[i].icon, size: 20, color: dim.contains(i) ? const Color(0x59FFFFFF) : VColors.textPrimary),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: VHue.green.withValues(alpha: i == active ? 0.28 : 0.14),
+                          border: Border.all(
+                            color: VHue.green.withValues(alpha: i == active ? 0.68 : 0.32),
+                            width: i == active ? 0.95 : 0.6,
+                          ),
+                          boxShadow: i == active
+                              ? VShadow.emissive(
+                                  VHue.green,
+                                  intensity: 0.75,
+                                )
+                              : null,
+                        ),
+                        child: Icon(
+                          items[i].icon,
+                          size: compact ? 18 : 20,
+                          color: dim.contains(i)
+                              ? const Color(0x59FFFFFF)
+                              : (i == active ? Colors.white : VHue.green),
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
-                        items[i].label.replaceAll(' ', '\n'),
+                        _shortLabel(items[i].label),
+                        maxLines: 1,
                         textAlign: TextAlign.center,
-                        softWrap: false,
-                        overflow: TextOverflow.visible,
+                        overflow: TextOverflow.ellipsis,
                         style: VType.caption(
-                          color: dim.contains(i) ? const Color(0x59FFFFFF) : (i == active ? VColors.textPrimary : VColors.textSecondary),
-                          weight: FontWeight.w500,
-                        ).copyWith(fontSize: 11, height: 13 / 11),
+                          color: dim.contains(i)
+                              ? const Color(0x59FFFFFF)
+                              : (i == active ? VColors.textPrimary : VColors.textSecondary),
+                          weight: i == active ? FontWeight.w600 : FontWeight.w500,
+                        ).copyWith(fontSize: compact ? 9.5 : 10.0),
                       ),
-                    ]),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

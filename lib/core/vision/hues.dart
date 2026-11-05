@@ -1,9 +1,6 @@
 // Made by Claude (2026-10-20). Colour for Collider's icons.
 // Apple's system colours, at the values visionOS uses (its dark values, HIG "Color"), and the one colour each thing
 // carries wherever its icon appears: the same thing is always the same colour, a colour always means the same thing.
-// Icons that name a thing (an app, a place, an action, a kind of file) are drawn in its colour, filled where a filled
-// glyph exists, as Apple asks for colour in bold shapes rather than thin lines. Plain controls (close, back, more,
-// chevrons, send) stay white on glass, as visionOS draws them.
 import 'package:material_ui/material_ui.dart';
 
 abstract final class VHue {
@@ -19,7 +16,7 @@ abstract final class VHue {
   static const purple = Color(0xFFDB34F2);
   static const pink = Color(0xFFFF375F);
   static const brown = Color(0xFFB78A66);
-  static const gray = Color(0xFF8E8E93);
+  static const gray = Color(0xFFD1D1D6);
 
   // The apps, matching their icons in the Apps overlay.
   static const smartGen = indigo;
@@ -36,13 +33,15 @@ final Map<int, Color> _byGlyph = {
   for (final e in <IconData, Color>{
     // composing, history, models, settings, apps
     Icons.edit_note_rounded: VHue.blue,
+    Icons.chat_bubble_rounded: VHue.blue,
     Icons.add_comment_outlined: VHue.blue,
     Icons.add_rounded: VHue.green,
     Icons.history_rounded: VHue.purple,
     Icons.hub_outlined: VHue.indigo,
-    Icons.tune_rounded: VHue.gray,
+    Icons.tune_rounded: VHue.cyan,
     Icons.apps_rounded: VHue.orange,
-    Icons.settings_rounded: VHue.gray,
+    Icons.grid_view_rounded: VHue.orange,
+    Icons.settings_rounded: VHue.cyan,
     // what a message or a conversation can do
     Icons.copy_rounded: VHue.blue,
     Icons.bookmark_border_rounded: VHue.orange,
