@@ -1,0 +1,79 @@
+[
+ {
+  "id": "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "s": "OK",
+  "d": 5.5,
+  "len": 102,
+  "t": "A latch is a basic device that remembers whether it's on or off until something triggers i"
+ },
+ {
+  "id": "nvidia/nemotron-3-ultra-550b-a55b",
+  "s": "OK",
+  "d": 2.2,
+  "len": 121,
+  "t": "A latch is a simple electronic circuit that remembers a single bit of information (on or o"
+ },
+ {
+  "id": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "s": "OK",
+  "d": 1.0,
+  "len": 71,
+  "t": "A latch is a simple device used to keep a door, gate, or window closed."
+ },
+ {
+  "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+  "s": "OK",
+  "d": 1.1,
+  "len": 95,
+  "t": "A latch is a small piece that snaps or hooks onto something to keep it closed or held in p"
+ },
+ {
+  "id": "nvidia/nemotron-3.5-bolt-e4b",
+  "s": "OK",
+  "d": 0.7,
+  "len": 94,
+  "t": "A latch is a simple mechanism used to hold or secure something closed until manually relea"
+ },
+ {
+  "id": "google/gemma-4-31b-it",
+  "s": "OK",
+  "d": 12.6,
+  "len": 115,
+  "t": "A latch is a simple electronic circuit that stores one piece of information (on or off) un"
+ },
+ {
+  "id": "meta/muse-glimmer-30b",
+  "s": "OK",
+  "d": 21.3,
+  "len": 98,
+  "t": "A latch is a simple fastener that holds a door or lid closed and can be opened and closed "
+ },
+ {
+  "id": "meta/llama-3.2-90b-vision-instruct",
+  "s": "OK",
+  "d": 14.3,
+  "len": 174,
+  "t": "A latch is a device that holds or fastens something in place, often used on doors, gates, "
+ },
+ {
+  "id": "minimaxai/minimax-m3.1-flash",
+  "s": "OK",
+  "d": 4.6,
+  "len": 93,
+  "t": "A latch is a simple locking device that uses a movable bar to secure a door, window, or ga"
+ },
+ {
+  "id": "mistralai/mistral-large-4-1t-a52b",
+  "s": "OK",
+  "d": 4.4,
+  "len": 111,
+  "t": "A latch is a simple mechanical catch that holds a door, gate, or container closed until yo"
+ },
+ {
+  "id": "stepfun-ai/step-5-preview",
+  "s": "OK",
+  "d": 28.0,
+  "len": 167,
+  "t": "A latch is a simple mechanical device used to fasten, secure, or hold something—such as a "
+ }
+]

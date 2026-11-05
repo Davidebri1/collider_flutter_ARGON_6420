@@ -1,0 +1,15 @@
+name = "collider-crouton-alpha"
+main = "worker/src/index.js"
+compatibility_date = "2026-01-01"
+
+# The Flutter build and the API that feeds it, one origin: /api/* goes to the Worker,
+# everything else is the app itself.
+[assets]
+directory = "./build/web"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+[[kv_namespaces]]
+binding = "STATE"
+id = "ef855140e2154c7b91fd21bfc34f78f0"
