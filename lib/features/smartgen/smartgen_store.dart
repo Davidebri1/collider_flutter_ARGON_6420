@@ -285,6 +285,8 @@ class SmartGenStore extends ChangeNotifier {
     return t.isEmpty ||
         t == 'four' ||
         t == '4' ||
+        t == 'ok then' ||
+        t.startsWith('ok then') ||
         t.startsWith('i am glm') ||
         t.startsWith('nemotron 3 super by') ||
         t.startsWith('i am nemotron') ||
@@ -349,14 +351,23 @@ class SmartGenStore extends ChangeNotifier {
   }
 
   void _ensureDefaultCoordinates() {
-    var col = 0;
+    var globalIdx = 0;
+    final used = <String>{};
     for (final e in _lists.entries) {
       for (var i = 0; i < e.value.length; i++) {
         final c = e.value[i];
-        c.x ??= 20.0 + ((col + i) % 3) * 244.0;
-        c.y ??= 20.0 + ((col + i) ~/ 3) * 148.0;
+        final defX = 18.0 + (globalIdx % 3) * 242.0;
+        final defY = 18.0 + (globalIdx ~/ 3) * 162.0;
+        c.x ??= defX;
+        c.y ??= defY;
+        final posKey = '${c.x!.round()},${c.y!.round()}';
+        if (!used.add(posKey)) {
+          c.x = defX;
+          c.y = defY;
+          used.add('${c.x!.round()},${c.y!.round()}');
+        }
+        globalIdx++;
       }
-      col++;
     }
   }
 
@@ -400,6 +411,8 @@ class SmartGenStore extends ChangeNotifier {
         }
         if (existingTitles.contains(title.toLowerCase())) continue;
         final isDone = item['done'] == true;
+        final rawEst = score.contains('/') ? score.split('/').first.trim() : '';
+        final cleanEst = RegExp(r'^\d+$').hasMatch(rawEst) ? rawEst : '';
         final card = SgCard(
           id: id,
           title: title,
@@ -411,7 +424,7 @@ class SmartGenStore extends ChangeNotifier {
             'status': isDone ? 'done' : (listName == 'High' ? 'doing' : 'open'),
             'due': due,
             'owner': '@consensus',
-            'estimate': score.isNotEmpty ? score.split('/').first : '',
+            'estimate': cleanEst,
             'link': '',
             'done': isDone,
           },

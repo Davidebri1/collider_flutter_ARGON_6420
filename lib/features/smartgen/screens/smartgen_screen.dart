@@ -44,7 +44,24 @@ class _SmartGenScreenState extends State<SmartGenScreen> {
   void initState() {
     super.initState();
     _store.addListener(_changed);
-    _store.load();
+    _store.load().then((_) {
+      if (!mounted) return;
+      if (Uri.base.queryParameters['modal'] == 'card') {
+        for (final l in _boards[_tab]) {
+          final cards = _store.list(l);
+          if (cards.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _openCardModal(cards.first);
+            });
+            break;
+          }
+        }
+      } else if (Uri.base.queryParameters['modal'] == 'hooks') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _openHooksModal();
+        });
+      }
+    });
   }
 
   @override
