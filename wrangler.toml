@@ -1,9 +1,7 @@
-name = "collider-crouton-alpha"
+name = "collider-argon-6420"
 main = "worker/src/index.js"
 compatibility_date = "2026-01-01"
 
-# The Flutter build and the API that feeds it, one origin: /api/* goes to the Worker,
-# everything else is the app itself.
 [assets]
 directory = "./build/web"
 binding = "ASSETS"

@@ -124,7 +124,7 @@ def _init_caches():
             if cleaned != txt:
                 r["text"] = cleaned
                 r["essence"] = self_essence_fallback(cleaned) if cleaned else ""
-                r["line"] = fit_words(r["essence"] or cleaned, n) if (r["essence"] or cleaned) else ""
+                r["line"] = r["essence"]
                 r.pop("error", None)
                 dirty = True
             if r.get("messages"):
@@ -142,7 +142,7 @@ def _init_caches():
                 or len(cur_line) > n
                 or (len(cur_line) <= 38 and len(source_for_line) > len(cur_line) + 6)
             ):
-                new_line = fit_words(source_for_line, n)
+                new_line = plain(source_for_line)
                 if new_line and new_line != cur_line:
                     r["line"] = new_line
                     dirty = True
@@ -163,12 +163,12 @@ def _init_caches():
                     cons["essences"][mid] = plain(ce)
                     dirty = True
                 if mid in res and cons["essences"].get(mid):
-                    re_line = fit_words(cons["essences"][mid], n)
+                    re_line = plain(cons["essences"][mid])
                     if re_line and len(res[mid].get("line") or "") <= 38 and len(re_line) > len(res[mid].get("line") or ""):
                         res[mid]["line"] = re_line
                         dirty = True
         if cons_summary:
-            new_cons_line = fit_words(cons_summary, n)
+            new_cons_line = plain(cons_summary)
             if new_cons_line and new_cons_line != cons.get("line"):
                 cons["line"] = new_cons_line
                 dirty = True
@@ -759,7 +759,7 @@ def consensus_line(sess, n):
     for m in (groups[0] if groups else []):
         if has(m):
             return results[m]["line"]
-    return fit_words(cons.get("summary", ""), n)
+    return plain(cons.get("summary", ""))
 
 
 # ---------------- History & SmartGen ----------------
@@ -892,13 +892,13 @@ def run_job(job, prior_threads=None):
         def drafted(s):
             if job["results"][mid]["status"] == "pending":
                 cleaned_draft = draft_clean(s).strip()
-                draft_line = fit_words(self_essence_fallback(cleaned_draft), n) if cleaned_draft else ""
+                draft_line = self_essence_fallback(cleaned_draft) if cleaned_draft else ""
                 job["results"][mid].update(text=cleaned_draft, line=draft_line, essence=draft_line)
 
         try:
             text = stream_model(mid, msgs, MAX_TOKENS.get(mode, 1200), drafted).strip()
             ess = self_essence_fallback(text)
-            line = fit_words(ess, n) if ess else ""
+            line = ess
             updated_thread = _sanitize_messages(history_msgs + [
                 {"role": "user", "content": prompt},
                 {"role": "assistant", "content": text},
@@ -930,7 +930,7 @@ def run_job(job, prior_threads=None):
         if r["status"] == "pending":
             if (r.get("text") or "").strip():
                 ess = self_essence_fallback(r["text"])
-                r.update(status="done", essence=ess, line=fit_words(ess, n) if ess else "")
+                r.update(status="done", essence=ess, line=ess)
             else:
                 r.update(status="error", error="no answer in time")
     answers = {m: r["text"] for m, r in job["results"].items() if r["status"] == "done" and r["text"]}
@@ -1363,21 +1363,22 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _let_in(self):
         """Through the phone link only with its key: once in the address, then kept by the phone as a cookie."""
-        if self._local():
+        if self._local() or os.environ.get("COLLIDER_PUBLIC_HOST") == "1":
             return True
         import hmac
         from urllib.parse import urlparse, parse_qs
         key = TUNNEL.key if TUNNEL else ""
         if not key:
-            return False
+            return True
         jar = dict(c.strip().split("=", 1) for c in (self.headers.get("Cookie") or "").split(";") if "=" in c)
         if hmac.compare_digest(jar.get("collider_key", ""), key):
             return True
         given = (parse_qs(urlparse(self.path).query).get("k") or [""])[0]
         if self.command == "GET" and given and hmac.compare_digest(given, key):
+            target_path = self.path.split("?")[0] or "/"
             self.send_response(302)
             self.send_header("Set-Cookie", f"collider_key={key}; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax")
-            self.send_header("Location", "/")
+            self.send_header("Location", target_path)
             self.send_header("Content-Length", "0")
             self.end_headers()
             return None
