@@ -8,6 +8,7 @@ import 'package:collider_flutter/core/theme/app_fonts.dart';
 import '../theme/smartgen_glass.dart';
 import '../models/smartgen_models.dart';
 import '../state/smartgen_store.dart';
+import 'sg_card_face.dart';
 import 'sg_menu.dart';
 import 'smartgen_icons.dart';
 
@@ -268,14 +269,14 @@ class _SmartCardWidgetState extends State<SmartCardWidget>
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(SGGlass.rCard - 1),
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              accent.withValues(alpha: 0.34),
-              accent.withValues(alpha: 0.16),
-              accent.withValues(alpha: 0.07),
+              accent.withValues(alpha: 0.22),
+              accent.withValues(alpha: 0.10),
+              accent.withValues(alpha: 0.03),
             ],
-            stops: const [0.0, 0.45, 1.0],
+            stops: const [0.0, 0.5, 1.0],
           ),
         ),
         padding: const EdgeInsets.fromLTRB(13, 11, 9, 11),
@@ -920,11 +921,13 @@ class _SmartCardWidgetState extends State<SmartCardWidget>
 
   Color _accentColor() {
     final raw = tpl?.settings['accent'] as String?;
-    if (raw == null) return const Color(0xFF64FFDA);
+    if (raw == null || raw.isEmpty) {
+      return SGCardFace.tintFor(card.templateId);
+    }
     try {
       return Color(int.parse(raw));
     } catch (_) {
-      return const Color(0xFF64FFDA);
+      return SGCardFace.tintFor(card.templateId);
     }
   }
 
@@ -1067,21 +1070,25 @@ class _SmartCardWidgetState extends State<SmartCardWidget>
   List<Widget> _visibleFields() {
     final t = tpl;
     if (t == null) return [];
-    return t.fields
-        .where((f) => !card.hiddenFieldIds.contains(f.id))
-        .map((f) => _InlineFieldRow(
-              key: ValueKey('${card.id}_${f.id}'),
-              field: f,
-              value: card.values[f.id],
-              editing: _editingFieldId == f.id,
-              editMode: _fieldsEditMode,
-              store: store,
-              card: card,
-              template: t,
-              onTap: () => setState(() => _editingFieldId = f.id),
-              onDone: () => setState(() => _editingFieldId = null),
-            ))
-        .toList();
+    return t.fields.where((f) {
+      if (card.hiddenFieldIds.contains(f.id)) return false;
+      if (_fieldsEditMode || _editingFieldId == f.id) return true;
+      // Title is already displayed and editable inline in _buildTitleRow().
+      if (f.label.trim().toLowerCase() == 'title') return false;
+      final val = (card.values[f.id]?.toString() ?? '').trim();
+      return val.isNotEmpty;
+    }).map((f) => _InlineFieldRow(
+          key: ValueKey('${card.id}_${f.id}'),
+          field: f,
+          value: card.values[f.id],
+          editing: _editingFieldId == f.id,
+          editMode: _fieldsEditMode,
+          store: store,
+          card: card,
+          template: t,
+          onTap: () => setState(() => _editingFieldId = f.id),
+          onDone: () => setState(() => _editingFieldId = null),
+        )).toList();
   }
 
   Widget _buildFieldsEditor() {
@@ -1393,8 +1400,35 @@ class _InlineFieldRowState extends State<_InlineFieldRow> {
   @override
   Widget build(BuildContext context) {
     if (widget.editMode) return _buildEditModeRow();
+    final isCompactKind = !widget.editing &&
+        (widget.field.kind == FieldKind.dropdown ||
+            widget.field.kind == FieldKind.number ||
+            widget.field.kind == FieldKind.date ||
+            widget.field.kind == FieldKind.time ||
+            widget.field.kind == FieldKind.toggle ||
+            widget.field.kind == FieldKind.color);
+    if (isCompactKind) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(widget.field.label,
+                style:
+                    AppFonts.instrumentSans(fontSize: 10.5, color: SGGlass.ink3)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _buildViewer(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Padding(
-      padding: const EdgeInsets.only(top: 7),
+      padding: const EdgeInsets.only(top: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

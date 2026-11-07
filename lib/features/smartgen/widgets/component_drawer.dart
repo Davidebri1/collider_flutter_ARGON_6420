@@ -235,7 +235,8 @@ class _ComponentDrawerState extends State<ComponentDrawer> {
                   // happens through the side nav, never a separate menu.
                   if (widget.kind == ComponentKind.board) ...[
                     _sectionLabel('Your boards'),
-                    Flexible(
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 150),
                       child: ListView.separated(
                         shrinkWrap: true,
                         padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),

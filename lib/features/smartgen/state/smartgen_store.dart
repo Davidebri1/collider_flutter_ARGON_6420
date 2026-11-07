@@ -247,29 +247,29 @@ class SmartGenStore extends ChangeNotifier {
         assignee: 'You',
         priority: 'P1',
         x: 660,
-        y: 20);
+        y: 18);
     seed('task', 'Review the board views', 'to_do',
         description:
             'Swipe the view switcher for Calendar, Notebook, Album and the rest.',
         priority: 'P2',
         x: 940,
-        y: 20);
+        y: 18);
     seed('project', 'Collider refresh', 'in_progress',
         description: 'The active effort this board is tracking.',
         assignee: 'You',
         priority: 'P1',
         x: 660,
-        y: 255);
+        y: 230);
     seed('feature', 'One-tap wallpaper set', 'in_progress',
         description: 'Ship the single-press set from the theme gallery.',
         priority: 'P2',
         x: 940,
-        y: 255);
+        y: 230);
     seed('note', 'Everything here is editable in place', 'done',
         description:
             'Tap any field on a card to change it. No settings screen.',
-        x: 660,
-        y: 470);
+        x: 24,
+        y: 412);
 
     // Also seed two starter canvases on the active board so the Canvas Navigator
     // strip (Board | 1 Notebook | 2 Portfolio | + Canvas) is ready immediately.
