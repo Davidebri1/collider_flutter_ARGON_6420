@@ -25,7 +25,7 @@ import 'features/wallpaper/widgets/windowless_theme_scroller.dart';
 import 'features/drawers/settings_drawer.dart';
 import 'features/consensus/consensus_webview.dart';
 import 'features/smartgen/screens/smartgen_screen.dart';
-import 'features/smartgen/smartgen_store.dart';
+import 'features/smartgen/state/smartgen_store.dart';
 import 'features/market/screens/market_screen.dart';
 import 'features/upgrade/screens/upgrade_screen.dart';
 import 'features/skills/screens/skills_screen.dart';
@@ -172,7 +172,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
   /// The rail ornament shows on the resting canvas and durable work surfaces.
   bool get _railVisible {
     if (_localHistoryModel != null || _zoomedMessage != null || _browserOpen) return false;
-    const surfaces = {null, 'smartgen', 'market', 'themes', 'premium'};
+    const surfaces = {null, 'market', 'themes', 'premium'};
     return surfaces.contains(_activeDrawer);
   }
 
@@ -1497,15 +1497,14 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
 
           if (_activeDrawer == 'smartgen')
             Positioned(
-              left: desktopSurfaceLeft,
+              left: 0,
               right: 0,
               top: 0,
-              bottom: 78,
+              bottom: 72,
               child: SmartGenScreen(
                 onClose: () => _requestSwitchSurface(null),
-                viewMode: _smartGenView,
-                onViewModeChanged: (v) => setState(() => _smartGenView = v),
-                newCardTrigger: _smartGenNewCardTrigger,
+                isPro: true,
+                isElite: true,
               ),
             ),
 
@@ -1605,7 +1604,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
           ],
 
           // ================= MUSIC WIDGET: draggable, stays where it is placed =================
-          if (_activeDrawer != 'premium')
+          if (_activeDrawer != 'premium' && _activeDrawer != 'smartgen')
             Builder(builder: (context) {
               final size = MediaQuery.of(context).size;
               final pos = _musicPos ?? Offset((size.width - 308) / 2, 52);

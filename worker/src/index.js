@@ -166,7 +166,7 @@ async function loadLiveConfig(env) {
         models: Array.isArray(p.models) ? p.models.join(", ") : (p.models || ""),
       }));
 
-  return {
+  const merged = {
     ...defs,
     ...(kvCfg || {}),
     providers: provs,
@@ -174,6 +174,15 @@ async function loadLiveConfig(env) {
     themes: (kvCfg && kvCfg.themes) || "https://collider-themes.ebridavid.workers.dev",
     store_bypass: Boolean(kvCfg && kvCfg.store_bypass),
   };
+  if (merged.tuning && typeof merged.tuning === "object") {
+    for (const k of [
+      "lines_tokens", "lines_backup_tokens", "lines_timeout", "line_min", "line_max",
+      "essence_answer_chars", "essence_tokens", "essence_timeout", "essence_short_line", "essence_fallback_chars"
+    ]) {
+      delete merged.tuning[k];
+    }
+  }
+  return merged;
 }
 
 function normalizeProvider(r) {

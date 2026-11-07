@@ -1198,15 +1198,13 @@ TUNING = {
     "thinking_tokens": 4000,
     "temperature": 0.4, "answer_timeout": 150, "retries": 2, "retry_wait": 1.5, "reply_tokens": 1400,
     "agent_answer_chars": 2200, "agent_tokens": 2500, "agent_backup_tokens": 9000, "agent_timeout": 110,
-    "lines_tokens": 900, "lines_backup_tokens": 6000, "lines_timeout": 90, "line_min": 60, "line_max": 140,
-    "essence_answer_chars": 3500, "essence_tokens": 200, "essence_timeout": 60,
     "plan_tokens": 400, "plan_backup_tokens": 3000, "plan_timeout": 60, "search_timeout": 40,
     "browser_search_depth": "basic", "browser_search_results": 10, "browser_search_timeout": 30,
     "attachments_max": 12, "history_kept": 200, "smartgen_kept": 100, "themes_refresh": 600,
     # read by code another session added in the old folder at 08:53 on 2026-10-20 without listing them here;
     # these are the values that code had before it was moved into the configuration
     "smartgen_backfill": 12, "search_fanout_min": 3, "search_fanout_factor": 2, "error_chars": 80,
-    "draft_extra_chars": 8, "essence_short_line": 45, "essence_fallback_chars": 240, "smartgen_title_chars": 64,
+    "draft_extra_chars": 8, "smartgen_title_chars": 64,
     "report_words": 8,
 }
 SETTINGS = ("consensus_agent", "agent_chain", "agent_prompt", "plan_prompt", "models",
@@ -1288,10 +1286,11 @@ def apply_settings(cfg):
         m.setdefault("temperature", "")
     missing = missing or any(k not in cfg["tuning"] for k in TUNING)
     TUNING = {**TUNING, **cfg["tuning"]}
-    if int(TUNING.get("line_max") or 0) < 115:
-        TUNING["line_min"] = 60
-        TUNING["line_max"] = 140
-        missing = True
+    for bad_k in ("lines_tokens", "lines_backup_tokens", "lines_timeout", "line_min", "line_max",
+                  "essence_answer_chars", "essence_tokens", "essence_timeout", "essence_short_line", "essence_fallback_chars"):
+        if cfg["tuning"].pop(bad_k, None) is not None:
+            missing = True
+        TUNING.pop(bad_k, None)
     if int(TUNING.get("smartgen_title_chars") or 0) < 48:
         TUNING["smartgen_title_chars"] = 64
         missing = True
