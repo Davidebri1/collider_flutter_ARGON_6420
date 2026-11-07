@@ -259,17 +259,17 @@ class SmartGenStore extends ChangeNotifier {
         assignee: 'You',
         priority: 'P1',
         x: 660,
-        y: 230);
+        y: 248);
     seed('feature', 'One-tap wallpaper set', 'in_progress',
         description: 'Ship the single-press set from the theme gallery.',
         priority: 'P2',
         x: 940,
-        y: 230);
+        y: 248);
     seed('note', 'Everything here is editable in place', 'done',
         description:
             'Tap any field on a card to change it. No settings screen.',
         x: 24,
-        y: 412);
+        y: 382);
 
     // Also seed two starter canvases on the active board so the Canvas Navigator
     // strip (Board | 1 Notebook | 2 Portfolio | + Canvas) is ready immediately.
@@ -286,6 +286,7 @@ class SmartGenStore extends ChangeNotifier {
         final cv1 = instantiateCanvas(notebookTpl.id,
             boardId: boardId, title: 'Notebook', x: 24, y: 20);
         if (cv1 != null) {
+          cv1.height = 340;
           final noteTpl = _templates.values
               .where((t) => t.kind == ComponentKind.card && t.typeKey == 'note')
               .firstOrNull;
@@ -306,6 +307,7 @@ class SmartGenStore extends ChangeNotifier {
         final cv2 = instantiateCanvas(portfolioTpl.id,
             boardId: boardId, title: 'Portfolio', x: 342, y: 20);
         if (cv2 != null) {
+          cv2.height = 340;
           final projTpl = _templates.values
               .where(
                   (t) => t.kind == ComponentKind.card && t.typeKey == 'project')

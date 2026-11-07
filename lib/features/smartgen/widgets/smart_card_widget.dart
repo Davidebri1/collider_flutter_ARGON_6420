@@ -325,10 +325,10 @@ class _SmartCardWidgetState extends State<SmartCardWidget>
       ('triggers', Icons.bolt_outlined, 'Triggers', card.triggers.isNotEmpty),
     ];
     return Padding(
-      padding: const EdgeInsets.only(top: 9),
+      padding: const EdgeInsets.only(top: 8),
       child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
+        spacing: 4,
+        runSpacing: 4,
         children: [
           for (final (key, icon, label, has) in items)
             GlassPressable(
@@ -338,7 +338,7 @@ class _SmartCardWidgetState extends State<SmartCardWidget>
                 message: label,
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                   decoration: BoxDecoration(
                     color: _openSection == key
                         ? SGGlass.ink
@@ -353,14 +353,14 @@ class _SmartCardWidgetState extends State<SmartCardWidget>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(icon,
-                          size: 12,
+                          size: 11,
                           color: _openSection == key
                               ? Colors.white
                               : SGGlass.ink2),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 4),
                       Text(label,
                           style: AppFonts.instrumentSans(
-                              fontSize: 10.5,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: _openSection == key
                                   ? Colors.white
