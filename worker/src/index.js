@@ -622,8 +622,8 @@ function buildFormInitial(cfg) {
     themes: cfg.themes || "https://collider-themes.ebridavid.workers.dev",
     bypass: Boolean(cfg.store_bypass),
     uses: provs.map((r) => providerUses(r, roster)),
-    key_catalog: defInit.key_catalog || [],
-    model_catalog: defInit.model_catalog || [],
+    key_catalog: (Array.isArray(cfg.key_catalog) && cfg.key_catalog.length) ? cfg.key_catalog : (defInit.key_catalog || []),
+    model_catalog: (Array.isArray(cfg.model_catalog) && cfg.model_catalog.length) ? cfg.model_catalog : (defInit.model_catalog || []),
     settings: settingsObj,
   };
 }
