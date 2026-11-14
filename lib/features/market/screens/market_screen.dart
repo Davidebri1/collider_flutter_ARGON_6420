@@ -94,6 +94,51 @@ class _MarketScreenState extends State<MarketScreen> {
     if (list.any((c) => c.making)) _poll = Timer(const Duration(seconds: 3), _refresh);
   }
 
+  static const List<_Item> _curatedShowcase = [
+    _Item(
+      id: 'dm_01',
+      title: 'Architectural Glass Pavilion at Dusk',
+      url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=900&q=80',
+      aspect: 1168 / 1728,
+    ),
+    _Item(
+      id: 'dm_02',
+      title: 'Iridescent Fluid Refraction Study',
+      url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=900&q=80',
+      aspect: 1168 / 1728,
+    ),
+    _Item(
+      id: 'dm_04',
+      title: 'Bioluminescent Deep Sea Jellyfish',
+      url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=900&q=80',
+      aspect: 1168 / 1728,
+    ),
+    _Item(
+      id: 'dm_03',
+      title: 'Minimalist Ceramic Vessel Composition',
+      url: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=900&q=80',
+      aspect: 1168 / 1728,
+    ),
+    _Item(
+      id: 'dm_06',
+      title: 'Prismatic Light Dispersion on Obsidian',
+      url: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&w=900&q=80',
+      aspect: 1168 / 1728,
+    ),
+    _Item(
+      id: 'dm_07',
+      title: 'Macro Crystalline Mineral Formation',
+      url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=900&q=80',
+      aspect: 1168 / 1728,
+    ),
+  ];
+
+  static String _resolvedUrl(String u) {
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    if (u.startsWith('/')) return Uri.base.resolve(u).toString();
+    return Uri.base.resolve('/assets/$u').toString();
+  }
+
   List<_Item> get _items {
     final api = ColliderApi.instance;
     final seenTitles = <String>{};
@@ -111,6 +156,8 @@ class _MarketScreenState extends State<MarketScreen> {
                     : 9 / 16,
                 fileRef: 'generated/${m['name']}',
               ),
+      for (final s in _curatedShowcase)
+        if (seenTitles.add(s.title.toLowerCase().trim())) s,
       for (final t in ThemeCloud.instance.themes)
         if (seenTitles.add(t.name.toLowerCase().trim()))
           _Item(id: t.id, title: t.name, url: t.assetPath, aspect: 1168 / 1728, theme: t),
@@ -131,10 +178,11 @@ class _MarketScreenState extends State<MarketScreen> {
     (await SharedPreferences.getInstance()).setStringList(_savedKey, _saved.toList()..sort());
   }
 
-  Future<String?> _ref(ViewedPicture p) async {
-    if (p.fileRef != null) return p.fileRef;
-    final name = await ColliderApi.instance.download(p.url);
-    return name == null ? null : 'downloaded/$name';
+  Future<String> _ref(ViewedPicture p) async {
+    if (p.fileRef != null) return p.fileRef!;
+    final resolved = _resolvedUrl(p.url);
+    final name = await ColliderApi.instance.download(resolved);
+    return name != null ? 'downloaded/$name' : resolved;
   }
 
   void _open(List<_Item> items, int i) {
@@ -159,12 +207,14 @@ class _MarketScreenState extends State<MarketScreen> {
         saved: _saved,
         onSave: _save,
         onFiles: (p) async {
-          if (p.fileRef == null) await ColliderApi.instance.download(p.url);
+          if (p.fileRef == null) {
+            await ColliderApi.instance.download(_resolvedUrl(p.url));
+            await ColliderApi.instance.files(forceRefresh: true);
+          }
         },
         onRemix: (p) async {
-          final ref = await _ref(p);
-          if (ref == null) return;
           if (ctx.mounted) Navigator.of(ctx).pop();
+          final ref = await _ref(p);
           widget.onRemix(ref);
         },
         onClose: () => Navigator.of(ctx).pop(),

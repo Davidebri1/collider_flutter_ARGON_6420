@@ -48,6 +48,8 @@ class PictureViewer extends StatefulWidget {
 class _PictureViewerState extends State<PictureViewer> {
   late final PageController _pages = PageController(initialPage: widget.start);
   late int _i = widget.start;
+  late final Set<String> _kept = {...widget.saved};
+  final Set<String> _savedToFiles = {};
   final TransformationController _zoom = TransformationController();
   bool _zoomed = false;
   TapDownDetails? _tap;
@@ -68,9 +70,18 @@ class _PictureViewerState extends State<PictureViewer> {
     super.dispose();
   }
 
+  String _resolvedUrl(String u) {
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    if (u.startsWith('/')) return Uri.base.resolve(u).toString();
+    return Uri.base.resolve('/assets/$u').toString();
+  }
+
   Future<void> _send(ViewedPicture p) async {
-    if (canShareText && await shareText(p.url)) return;
-    await Clipboard.setData(ClipboardData(text: p.url));
+    final full = _resolvedUrl(p.url);
+    await Clipboard.setData(ClipboardData(text: full));
+    if (canShareText) {
+      await shareText(full);
+    }
   }
 
   void _toggleZoom() {
@@ -96,20 +107,41 @@ class _PictureViewerState extends State<PictureViewer> {
   @override
   Widget build(BuildContext context) {
     final p = widget.pictures[_i];
-    final kept = widget.saved.contains(p.id);
+    final kept = _kept.contains(p.id) || widget.saved.contains(p.id);
+    final savedFile = _savedToFiles.contains(p.id);
     return DetailView(
       onClose: widget.onClose,
       onSend: () => _send(p),
-      onOpen: () => openUrl(p.url),
+      onOpen: () => openUrl(_resolvedUrl(p.url)),
       media: true,
       actions: [
         if (widget.onRemix != null) DetailAction(Icons.auto_fix_high_rounded, 'Remix', () => widget.onRemix!(p)),
         if (widget.onSave != null)
-          DetailAction(kept ? Icons.favorite_rounded : Icons.favorite_border_rounded, 'Keep', () {
-            widget.onSave!(p);
-            setState(() {});
-          }, tint: kept ? const Color(0xFFE5484D) : null),
-        if (widget.onFiles != null) DetailAction(Icons.download_rounded, 'Save', () => widget.onFiles!(p)),
+          DetailAction(
+            kept ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            kept ? 'Kept' : 'Keep',
+            () {
+              setState(() {
+                if (kept) {
+                  _kept.remove(p.id);
+                } else {
+                  _kept.add(p.id);
+                }
+              });
+              widget.onSave!(p);
+            },
+            tint: kept ? const Color(0xFFE5484D) : null,
+          ),
+        if (widget.onFiles != null)
+          DetailAction(
+            savedFile ? Icons.check_rounded : Icons.download_rounded,
+            savedFile ? 'Saved' : 'Save',
+            () {
+              setState(() => _savedToFiles.add(p.id));
+              widget.onFiles!(p);
+            },
+            tint: savedFile ? const Color(0xFF30D158) : null,
+          ),
       ],
       child: SizedBox(
         height: math.min(DetailView.zoneWidth(context, media: true) / p.aspect, DetailView.zoneHeight(context)),

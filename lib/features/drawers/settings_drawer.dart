@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import '../../../core/api/collider_api.dart';
+import '../../../core/platform/open_url.dart';
 import '../../../core/vision/vision_kit.dart';
 
 /// Settings & Account Drawer.
@@ -156,6 +157,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               children: [
                                 _row('Incognito', VToggle(value: w.incognito, onChanged: w.onIncognito)),
                                 _row('Save to History', VToggle(value: w.autosave, onChanged: w.incognito ? null : w.onAutosave)),
+                                _link('Launch Configurator', () => openUrl('/config')),
                               ],
                             )
                           else
@@ -165,6 +167,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               children: [
                                 _link('Purchased', w.onOpenPurchased),
                                 _link('Upgrade', w.onOpenUpgrade),
+                                _link('Launch Configurator', () => openUrl('/config')),
                                 if (_phone.isNotEmpty && _qr.isNotEmpty) _link('Phone', _showPhone),
                               ],
                             ),

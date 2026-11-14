@@ -1,15 +1,14 @@
-"""Making pictures and videos. Made by Claude (2026-10-20); providers added 2026-10-21.
+# E.D. — Collider — Signed: Gemini 4 Argon (2026-10-24)
+"""Making pictures for Discover Market.
 
-David, 20 Oct: "discover market should be wired to Fal"; 21 Oct, on which provider makes pictures: "All 3. Especially
-a and c" (NVIDIA's FLUX and Cloudflare Workers AI first, fal kept). So a picture is asked of the providers in the
-configuration's order (settings > imagine > providers), the first that answers makes it:
-  Cloudflare  FLUX.2 klein 4B through David's own Worker (dev/cf_imagine), up to 1920 on the long side, free each day
-              up to Cloudflare's daily allowance; takes up to four reference pictures.
-  NVIDIA      FLUX.1 dev, up to 1344 on the long side, on the NVIDIA keys.
-  fal         Grok Imagine, 2K, paid per picture ($0.08 at 2K medium, Oct 2026); videos only here.
-A request may name its model ("Cloudflare:@cf/...", "NVIDIA:black-forest-labs/...", "fal:xai/..."), as the media chat
-does; otherwise the order above is used. Everything made is saved in Files > Generated under the model that made it and
-listed in data\\imagine.json, newest first.
+Discover Market is strictly Images-Only per PRD 4 (R27, D2).
+A picture is requested from the configured providers in priority order
+(discover_market_image_generation > image_provider_priority_order):
+  Cloudflare  FLUX.2 Klein 4B / Dev / Schnell through Collider's Worker (dev/cf_imagine), up to 2048px on the long side,
+              free each day up to Cloudflare's daily allowance; takes up to four reference pictures.
+  NVIDIA      FLUX.1 Dev, up to 1344px on the long side, on the NVIDIA keys.
+  fal         2K high-resolution image generation ($0.08 at 2K medium).
+Everything made is saved in Files > Generated under the model that made it and listed in data\\imagine.json, newest first.
 """
 import base64, concurrent.futures as cf, io, json, os, random, re, threading, time, urllib.error, urllib.request, uuid
 
@@ -18,37 +17,27 @@ NVIDIA_GENAI = "https://ai.api.nvidia.com/v1/genai/"
 UA = {"User-Agent": "Collider/1.0"}
 
 DEFAULTS = {
-    "providers": ["Cloudflare", "NVIDIA", "fal"],
-    "cloudflare_model": "@cf/black-forest-labs/flux-2-klein-4b",
-    "nvidia_model": "black-forest-labs/flux.1-dev",
-    "image_model": "xai/grok-imagine-image/v2.0/text-to-image",
-    "motion_model": "xai/grok-imagine-video/v1.5/image-to-video",
-    "video_model": "xai/grok-imagine-video/v1.5/text-to-video",
-    "pictures": 4,
-    "image_resolution": "2k",
-    "image_quality": "medium",
-    "aspect_ratio": "9:16",
-    "video_resolution": "1080p",
-    "video_seconds": 6,
-    "poll_seconds": 2,
-    "deadline_seconds": 600,
+    "image_provider_priority_order": ["Cloudflare", "NVIDIA", "fal"],
+    "cloudflare_flux_model_id": "@cf/black-forest-labs/flux-2-klein-4b",
+    "nvidia_flux_model_id": "black-forest-labs/flux.1-dev",
+    "fal_image_model_id": "xai/grok-imagine-image/v2.0/text-to-image",
+    "default_images_per_prompt_count": 4,
+    "default_image_aspect_ratio": "9:16",
+    "fal_image_resolution_tier": "2k",
+    "fal_image_quality_tier": "medium",
+    "max_image_generation_wait_timeout_seconds": 600,
 }
 
-# Each model's own name, for Files > Generated and the media chat.
+# Each model's display name for Files > Generated and Discover Market.
 LABELS = {
-    "@cf/black-forest-labs/flux-2-klein-4b": "FLUX.2 klein 4B",
-    "@cf/black-forest-labs/flux-2-klein-9b": "FLUX.2 klein 9B",
-    "@cf/black-forest-labs/flux-2-dev": "FLUX.2 dev",
-    "@cf/black-forest-labs/flux-1-schnell": "FLUX.1 schnell",
-    "black-forest-labs/flux.1-dev": "FLUX.1 dev",
-    "xai/grok-imagine-image/v2.0/text-to-image": "Grok Imagine",
-    "xai/grok-imagine-video/v1.5/image-to-video": "Grok Imagine Video",
-    "xai/grok-imagine-video/v1.5/text-to-video": "Grok Imagine Video",
+    "@cf/black-forest-labs/flux-2-klein-4b": "FLUX.2 Klein 4B",
+    "@cf/black-forest-labs/flux-2-klein-9b": "FLUX.2 Klein 9B",
+    "@cf/black-forest-labs/flux-2-dev": "FLUX.2 Dev",
+    "@cf/black-forest-labs/flux-1-schnell": "FLUX.1 Schnell",
+    "black-forest-labs/flux.1-dev": "FLUX.1 Dev",
+    "xai/grok-imagine-image/v2.0/text-to-image": "FLUX / Studio 2K",
 }
 
-# Sizes per shape: Cloudflare's FLUX.2 takes any size to 1920; NVIDIA's FLUX.1 dev takes only these.
-# Claude, 2026-10-23: the largest Cloudflare makes (2048 on a side; it refused 1440x2560 and 2160x3840 when tried). A
-# 1152x2048 picture costs the same units as the 1080x1920 one it replaces (both are 12 tiles of 512).
 CF_SIZE = {"9:16": (1152, 2048), "16:9": (2048, 1152), "1:1": (2048, 2048), "3:4": (1536, 2048), "4:3": (2048, 1536)}
 NV_SIZE = {"9:16": (768, 1344), "16:9": (1344, 768), "1:1": (1024, 1024), "3:4": (896, 1152), "4:3": (1152, 896)}
 
@@ -57,21 +46,33 @@ _lock = threading.Lock()
 
 def label(model):
     p, _, rest = model.partition(":")
-    model = rest if p in ("Cloudflare", "NVIDIA", "fal") else model  # "Provider:model" ids (Claude, 2026-10-21)
+    model = rest if p in ("Cloudflare", "NVIDIA", "fal") else model
     return LABELS.get(model) or model.split("/")[-1]
+
+
+def normalize_imagine_settings(raw):
+    raw = raw or {}
+    return {
+        "image_provider_priority_order": list(raw.get("image_provider_priority_order") or raw.get("providers") or DEFAULTS["image_provider_priority_order"]),
+        "cloudflare_flux_model_id": str(raw.get("cloudflare_flux_model_id") or raw.get("cloudflare_model") or DEFAULTS["cloudflare_flux_model_id"]),
+        "nvidia_flux_model_id": str(raw.get("nvidia_flux_model_id") or raw.get("nvidia_model") or DEFAULTS["nvidia_flux_model_id"]),
+        "fal_image_model_id": str(raw.get("fal_image_model_id") or raw.get("image_model") or DEFAULTS["fal_image_model_id"]),
+        "default_images_per_prompt_count": int(raw.get("default_images_per_prompt_count") or raw.get("pictures") or DEFAULTS["default_images_per_prompt_count"]),
+        "default_image_aspect_ratio": str(raw.get("default_image_aspect_ratio") or raw.get("aspect_ratio") or DEFAULTS["default_image_aspect_ratio"]),
+        "fal_image_resolution_tier": str(raw.get("fal_image_resolution_tier") or raw.get("image_resolution") or DEFAULTS["fal_image_resolution_tier"]),
+        "fal_image_quality_tier": str(raw.get("fal_image_quality_tier") or raw.get("image_quality") or DEFAULTS["fal_image_quality_tier"]),
+        "max_image_generation_wait_timeout_seconds": int(raw.get("max_image_generation_wait_timeout_seconds") or raw.get("deadline_seconds") or DEFAULTS["max_image_generation_wait_timeout_seconds"]),
+    }
 
 
 class Imagine:
     def __init__(self, data_dir, files, rows, settings):
-        """files: collider_files.Files; rows(name): the configuration's rows with keys for a provider; settings(): the
-        imagine lines."""
         self.path = os.path.join(data_dir, "imagine.json")
         self.files = files
         self.rows = rows
         self.settings = settings
         self._turn = {}
 
-    # ---------------- the list ----------------
     def _load(self):
         try:
             return json.load(open(self.path, encoding="utf-8"))
@@ -97,47 +98,41 @@ class Imagine:
             return self._load()
 
     def models(self):
-        """The picture models that can be used now (their provider has a key), in the configuration's order."""
+        """The picture models that can be used now (their provider has a key), in the configuration's priority order."""
         s = self._s()
         out = []
-        for p in s["providers"]:
-            if not self.rows(p):
+        for p in s["image_provider_priority_order"]:
+            rs = self.rows(p)
+            if not rs:
                 continue
             if p == "Cloudflare":
-                ids = [m.strip() for m in (self.rows(p)[0].get("models") or s["cloudflare_model"]).split(",") if m.strip()]
+                raw_m = rs[0].get("extra_model_ids") or rs[0].get("models") or s["cloudflare_flux_model_id"]
+                ids = [m.strip() for m in raw_m.split(",") if m.strip()]
             elif p == "NVIDIA":
-                ids = [s["nvidia_model"]]
+                ids = [s["nvidia_flux_model_id"]]
             else:
-                ids = [s["image_model"]]
+                ids = [s["fal_image_model_id"]]
             out += [{"id": f"{p}:{m}", "label": label(m), "provider": p} for m in ids]
         return out
 
     def _s(self):
-        return {**DEFAULTS, **(self.settings() or {})}
+        return normalize_imagine_settings(self.settings())
 
-    # ---------------- making ----------------
     def start(self, text, kind="image", from_id=None, replace=None, model=None, references=None, aspect=None, count=None):
-        """kind: image (pictures from words), video (a video from words), motion (a video from one of the pictures).
-        references: Files paths ("source/name") of pictures to make from. replace: a making that failed, tried again."""
         if replace:
             self.remove(replace)
         text = (text or "").strip()
-        source = None
-        if kind == "motion":
-            source = next((it for it in self.listing() if it["id"] == from_id), None)
-            if not source or not source.get("media"):
-                raise ValueError("no picture")
-        elif not text:
+        if not text:
             raise ValueError("no words")
         cid = uuid.uuid4().hex[:12]
-        item = {"id": cid, "kind": kind, "text": text or (source or {}).get("text", ""), "status": "making",
+        item = {"id": cid, "kind": "image", "text": text, "status": "making",
                 "created": time.time(), "from": from_id, "media": [], "model": model or "",
                 "references": list(references or []), "aspect": aspect or "", "count": int(count or 0)}
         with _lock:
             items = self._load()
             items.insert(0, item)
             self._save(items)
-        threading.Thread(target=self._run, args=(cid, item, source), daemon=True).start()
+        threading.Thread(target=self._run, args=(cid, item), daemon=True).start()
         return item
 
     def _key(self, provider):
@@ -148,7 +143,6 @@ class Imagine:
         return rs[self._turn[provider]]
 
     def _refs(self, item, small):
-        """The reference pictures as base64, made smaller than small x small for models that need it."""
         out = []
         for ref in item.get("references") or []:
             try:
@@ -166,45 +160,37 @@ class Imagine:
                 print("reference", ref, e)
         return out
 
-    def _run(self, cid, item, source):
+    def _run(self, cid, item):
         s = self._s()
-        kind, text = item["kind"], item["text"]
+        text = item["text"]
         try:
-            if kind != "image":
-                found, model = self._fal_video(s, kind, text, source)
-            else:
-                # the chosen model first; if it cannot make them (its day's allowance used up, its service down), the
-                # next makers in line, so a request still comes back with pictures (Claude, 2026-10-21)
-                chosen = item.get("model") or ""
-                order = ([chosen] if chosen else []) + [f"{p}:" for p in s["providers"] if not chosen.startswith(p + ":")]
-                found, model, last = None, "", ""
-                for choice in order:
-                    provider, _, m = choice.partition(":")
-                    try:
-                        found, model = self._pictures(s, provider, m, item)
-                        if found:
-                            model = f"{provider}:{model}"  # kept as the id a retry picks (Claude, 2026-10-21)
-                            break
-                    except Exception as e:
-                        last = f"{provider}: {str(e)[:120]}"
-                        print("pictures", last)
-                if not found:
-                    raise RuntimeError(last or "no provider")
+            chosen = item.get("model") or ""
+            order = ([chosen] if chosen else []) + [f"{p}:" for p in s["image_provider_priority_order"] if not chosen.startswith(p + ":")]
+            found, model, last = None, "", ""
+            for choice in order:
+                provider, _, m = choice.partition(":")
+                try:
+                    found, model = self._pictures(s, provider, m, item)
+                    if found:
+                        model = f"{provider}:{model}"
+                        break
+                except Exception as e:
+                    last = f"{provider}: {str(e)[:120]}"
+                    print("pictures", last)
+            if not found:
+                raise RuntimeError(last or "no provider")
             media = []
             stem = re.sub(r"[^\w\- ]", "", text)[:48].strip() or "Picture"
             for n, (data, ext, w, h, remote) in enumerate(found):
                 name = self.files.save_media(f"{stem}{'' if n == 0 else f' {n + 1}'}{ext}", data, label(model))
                 media.append({"name": name, "url": f"/files/generated/{urllib.request.quote(name)}", "remote": remote,
-                              "kind": "video" if ext.lower() in (".mp4", ".webm", ".mov") else "image",
-                              "width": w, "height": h})
+                              "kind": "image", "width": w, "height": h})
             self._update(cid, status="done", media=media, model=model, label=label(model))
         except Exception as e:
             self._update(cid, status="failed", error=str(e)[:160])
 
-    # ---------------- providers ----------------
     @staticmethod
     def _some(one, n):
-        """Makes n pictures at once and keeps those that came back; fails only when none did. (Claude, 2026-10-21)"""
         got, err, missed = [], None, 0
         with cf.ThreadPoolExecutor(n) as pool:
             for f in [pool.submit(one, i) for i in range(n)]:
@@ -212,7 +198,7 @@ class Imagine:
                     got.append(f.result())
                 except Exception as e:
                     err, missed = err or e, missed + 1
-        for i in range(missed if got else 0):  # one more try each, one at a time, for those a busy service dropped
+        for i in range(missed if got else 0):
             try:
                 got.append(one(i))
             except Exception:
@@ -222,26 +208,28 @@ class Imagine:
         return got
 
     def _pictures(self, s, provider, model, item):
-        n = max(1, min(int(item.get("count") or s["pictures"]), 8))
-        aspect = item.get("aspect") or s["aspect_ratio"]
+        n = max(1, min(int(item.get("count") or s["default_images_per_prompt_count"]), 8))
+        aspect = item.get("aspect") or s["default_image_aspect_ratio"]
         if provider == "Cloudflare":
             row = self._key("Cloudflare")
             if not row:
                 return None, ""
-            model = model or s["cloudflare_model"]
+            ep = row.get("api_endpoint_url") or row.get("endpoint") or ""
+            key = (row.get("api_key") or row.get("key") or "").strip()
+            model = model or s["cloudflare_flux_model_id"]
             w, h = CF_SIZE.get(aspect, CF_SIZE["9:16"])
             refs = self._refs(item, 512)
 
             def one(_):
                 body = {"model": model, "prompt": item["text"], "width": w, "height": h, "seed": random.randint(1, 2**31 - 1),
                         "references": refs}
-                req = urllib.request.Request(row["endpoint"], data=json.dumps(body).encode(), headers={
-                    "Content-Type": "application/json", "Authorization": "Key " + row["key"].strip(), **UA})
+                req = urllib.request.Request(ep, data=json.dumps(body).encode(), headers={
+                    "Content-Type": "application/json", "Authorization": "Key " + key, **UA})
                 try:
                     with urllib.request.urlopen(req, timeout=180) as r:
                         data = r.read()
                         ext = ".jpg" if "jpeg" in (r.headers.get("Content-Type") or "") else ".png"
-                except urllib.error.HTTPError as e:  # the Worker's own words say why
+                except urllib.error.HTTPError as e:
                     raise RuntimeError(f"{e.code} {e.read()[:160].decode('utf-8', 'replace')}")
                 return data, ext, w, h, ""
             return self._some(one, n), model
@@ -249,7 +237,8 @@ class Imagine:
             row = self._key("NVIDIA")
             if not row:
                 return None, ""
-            model = model or s["nvidia_model"]
+            key = (row.get("api_key") or row.get("key") or "").strip()
+            model = model or s["nvidia_flux_model_id"]
             w, h = NV_SIZE.get(aspect, NV_SIZE["9:16"])
 
             def one(_):
@@ -257,7 +246,7 @@ class Imagine:
                         "seed": random.randint(1, 2**31 - 1), "steps": 50}
                 req = urllib.request.Request(NVIDIA_GENAI + model, data=json.dumps(body).encode(), headers={
                     "Content-Type": "application/json", "Accept": "application/json",
-                    "Authorization": "Bearer " + row["key"].strip(), **UA})
+                    "Authorization": "Bearer " + key, **UA})
                 with urllib.request.urlopen(req, timeout=180) as r:
                     art = (json.load(r).get("artifacts") or [{}])[0]
                 if art.get("finishReason") not in (None, "SUCCESS"):
@@ -268,30 +257,14 @@ class Imagine:
             row = self._key("fal")
             if not row:
                 return None, ""
-            model = model or s["image_model"]
-            body = {"prompt": item["text"], "num_images": n, "resolution": s["image_resolution"],
-                    "quality": s["image_quality"], "aspect_ratio": aspect, "output_format": "png"}
-            out = self._fal(s, model, body, row["key"].strip())
+            key = (row.get("api_key") or row.get("key") or "").strip()
+            model = model or s["fal_image_model_id"]
+            body = {"prompt": item["text"], "num_images": n, "resolution": s["fal_image_resolution_tier"],
+                    "quality": s["fal_image_quality_tier"], "aspect_ratio": aspect, "output_format": "png"}
+            out = self._fal(s, model, body, key)
             return [(self._get(i["url"]), os.path.splitext(i["url"].split("?")[0])[1] or ".png", i.get("width"), i.get("height"), i["url"])
                     for i in (out.get("images") or []) if i.get("url")], model
         return None, ""
-
-    def _fal_video(self, s, kind, text, source):
-        row = self._key("fal")
-        if not row:
-            raise RuntimeError("no fal key")
-        if kind == "video":
-            model = s["video_model"]
-            body = {"prompt": text, "resolution": s["video_resolution"], "duration": int(s["video_seconds"]), "aspect_ratio": s["aspect_ratio"]}
-        else:
-            model = s["motion_model"]
-            body = {"prompt": text or "", "image_url": source["media"][0].get("remote") or "",
-                    "resolution": s["video_resolution"], "duration": int(s["video_seconds"])}
-        out = self._fal(s, model, body, row["key"].strip())
-        v = out.get("video") or {}
-        if not v.get("url"):
-            raise RuntimeError("no video")
-        return [(self._get(v["url"]), ".mp4", v.get("width"), v.get("height"), v["url"])], model
 
     def _fal(self, s, model, body, key):
         def call(method, url, b=None):
@@ -307,14 +280,14 @@ class Imagine:
         job = call("POST", QUEUE + model, body)
         status_url = job.get("status_url") or f"{QUEUE}{model}/requests/{job['request_id']}/status"
         result_url = job.get("response_url") or f"{QUEUE}{model}/requests/{job['request_id']}"
-        give_up = time.time() + float(s["deadline_seconds"])
+        give_up = time.time() + float(s["max_image_generation_wait_timeout_seconds"])
         while True:
             st = call("GET", status_url)
             if st.get("status") == "COMPLETED":
                 break
             if st.get("status") in ("FAILED", "ERROR") or time.time() > give_up:
                 raise RuntimeError(st.get("status") or "timeout")
-            time.sleep(float(s["poll_seconds"]))
+            time.sleep(2.0)
         return call("GET", result_url)
 
     @staticmethod
@@ -322,6 +295,5 @@ class Imagine:
         return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120).read()
 
     def remove(self, cid):
-        """Takes a making off the list. Its files stay in Files > Generated."""
         with _lock:
             self._save([it for it in self._load() if it["id"] != cid])

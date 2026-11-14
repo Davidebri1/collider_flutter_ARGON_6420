@@ -59,6 +59,7 @@ class DetailView extends StatefulWidget {
 class _DetailViewState extends State<DetailView> with SingleTickerProviderStateMixin {
   // summoned: the room goes out of focus as the content rises toward the viewer
   late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 360))..forward();
+  bool _sent = false;
 
   @override
   void dispose() {
@@ -66,12 +67,28 @@ class _DetailViewState extends State<DetailView> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  void _handleSend() {
+    widget.onSend?.call();
+    if (mounted) {
+      setState(() => _sent = true);
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _sent = false);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = CurvedAnimation(parent: _in, curve: Curves.easeOutCubic);
     final all = [
       ...widget.actions,
-      if (widget.onSend != null) DetailAction(Icons.ios_share_rounded, 'Send', widget.onSend),
+      if (widget.onSend != null)
+        DetailAction(
+          _sent ? Icons.check_rounded : Icons.ios_share_rounded,
+          _sent ? 'Copied' : 'Send',
+          _handleSend,
+          tint: _sent ? VColors.accentCyan : null,
+        ),
       if (widget.onOpen != null) DetailAction(Icons.open_in_new_rounded, 'Open', widget.onOpen),
       DetailAction(Icons.close_rounded, 'Close', widget.onClose),
     ];

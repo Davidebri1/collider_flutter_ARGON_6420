@@ -133,6 +133,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
   TickerMessage? _zoomedMessage;
   ModelDef? _zoomedModelDef;
   final Set<String> _expandedModelIds = {};
+  bool _userClosedSideBySide = false;
   bool _isComposerSummoned = false;
   bool _isMobileSideNavOpen = false;
   String _currentPrompt = '';
@@ -189,23 +190,36 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     super.initState();
     FocusManager.instance.addListener(_onFocusChanged);
     ThemeBlurCache.instance.setActiveTheme(_currentTheme);
-    if (Uri.base.queryParameters['drawer'] == 'premium' ||
-        (Uri.base.queryParameters['drawer'] == 'market' && Uri.base.queryParameters['sub'] == 'themes')) {
+    final qp = Uri.base.queryParameters;
+    final d = qp['drawer'];
+    if (d == 'premium' ||
+        (d == 'theme' && qp['market'] == '1') ||
+        (d == 'market' && qp['sub'] == 'themes')) {
       _activeDrawer = 'premium';
-    } else if (Uri.base.queryParameters['drawer'] == 'music') {
+    } else if (d == 'theme' || d == 'themes') {
+      _activeDrawer = 'themes';
+    } else if (d == 'music') {
       _activeDrawer = 'files';
       _filesPlace = 'music';
-    } else if (Uri.base.queryParameters['drawer'] != null) {
-      _activeDrawer = Uri.base.queryParameters['drawer'];
+    } else if (d == 'browser') {
+      _activeDrawer = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openBrowserForTab('user_default'));
+    } else if (d == 'config') {
+      _activeDrawer = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) => openUrl('/config'));
+    } else if (d != null) {
+      _activeDrawer = d;
     }
-    if (Uri.base.queryParameters['composer'] == '1') _isComposerSummoned = true;
-    if (Uri.base.queryParameters['rail'] == '1') _isMobileSideNavOpen = true;
-    if (Uri.base.queryParameters['view'] != null) _smartGenView = Uri.base.queryParameters['view']!;
+    if (qp['composer'] == '1') _isComposerSummoned = true;
+    if (qp['rail'] == '1') _isMobileSideNavOpen = true;
+    if (qp['view'] != null) _smartGenView = qp['view']!;
     _initializeTickerItems();
     _initializeHistorySessions();
     _initializeBrowserTabs();
+    if (_selectedModelIds.isNotEmpty) {
+      _expandedModelIds.add(_selectedModelIds.first);
+    }
     _boot();
-    final qp = Uri.base.queryParameters;
     if (qp['zoom'] == '1' && _tickerItems.isNotEmpty) {
       _zoomedMessage = _tickerItems.first.conversation.last;
       _zoomedModelDef = _tickerItems.first.modelDef;
@@ -216,7 +230,6 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     if (qp['expand'] == '1') {
       if (_tickerItems.isNotEmpty) _expandedModelIds.add(_tickerItems.first.modelDef.id);
     }
-    FocusManager.instance.addListener(_onFocusChanged);
     if (qp['browser'] == '1') {
       WidgetsBinding.instance.addPostFrameCallback((_) => _openBrowserForTab('user_default'));
     }
@@ -408,7 +421,16 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
           ..clear()
           ..addAll(answeredIds)
           ..addAll(mediaIds);
+        if (!_userClosedSideBySide &&
+            (_expandedModelIds.isEmpty || !answeredIds.contains(_expandedModelIds.first))) {
+          _expandedModelIds
+            ..clear()
+            ..add(answeredIds.first);
+        }
       }
+    }
+    if (!_userClosedSideBySide && _expandedModelIds.isEmpty && _tickerItems.isNotEmpty) {
+      _expandedModelIds.add(_tickerItems.first.modelDef.id);
     }
     final c = j.consensus;
     _isConsensusGenerating = !j.done;
@@ -634,6 +656,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
   void _onTogglePill(String id) {
     final opening = !_expandedModelIds.contains(id);
     setState(() {
+      _userClosedSideBySide = !opening;
       _expandedModelIds.clear();
       if (opening) _expandedModelIds.add(id);
     });
@@ -787,6 +810,12 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     };
     setState(() {
       _busy = true;
+      _userClosedSideBySide = false;
+      if (_expandedModelIds.isEmpty || !models.contains(_expandedModelIds.first)) {
+        _expandedModelIds
+          ..clear()
+          ..add(models.first);
+      }
       _isComposerSummoned = _voiceChat;
       _closeAllPanes();
       _currentPrompt = prompt;
@@ -1098,8 +1127,12 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     final media = _activeCategory == ModelCategory.image;
     final isMobile = MediaQuery.of(context).size.width < 768;
 
-    final openId = _expandedModelIds.isEmpty ? null : _expandedModelIds.first;
-    final TickerItem? openItem = activePills.where((p) => p.modelDef.id == openId).firstOrNull;
+    final rawOpenId = _expandedModelIds.isEmpty ? null : _expandedModelIds.first;
+    final TickerItem? openItem = activePills.where((p) => p.modelDef.id == rawOpenId).firstOrNull ??
+        (!_userClosedSideBySide && activePills.isNotEmpty
+            ? (activePills.where((p) => p.conversation.length > 1).firstOrNull ?? activePills.first)
+            : null);
+    final openId = openItem?.modelDef.id;
     final sideBySide = openItem != null && !media;
     final railVisible = _railVisible && !(isMobile && sideBySide);
     final screenW = MediaQuery.sizeOf(context).width;
@@ -1110,7 +1143,10 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
             key: ValueKey('conv-${openItem.modelDef.id}'),
             item: openItem,
             fill: true,
-            onClose: () => setState(() => _expandedModelIds.clear()),
+            onClose: () => setState(() {
+              _userClosedSideBySide = true;
+              _expandedModelIds.clear();
+            }),
             onSendReply: (reply, files) => _onSendInlineReply(openItem.modelDef.id, reply, files),
             onOpenBrowser: () => _openBrowserForTab(_browserTabs.length > 1 ? _browserTabs[1].id : 'user_default'),
             onTapMessage: (msg) => setState(() {

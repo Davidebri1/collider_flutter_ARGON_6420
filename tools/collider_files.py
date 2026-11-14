@@ -270,8 +270,13 @@ def render_page(url, mobile=False):
 
 
 def is_search_challenge(final_url, html):
-    """True when the search engine sent a puzzle instead of results."""
-    return urlparse(final_url).netloc.endswith("duckduckgo.com") and ("anomaly-modal" in html or "bots use DuckDuckGo" in html)
+    """True when the search engine sent a puzzle or JS-only gate instead of results."""
+    host = urlparse(final_url).netloc.lower()
+    if host.endswith("duckduckgo.com") and ("anomaly-modal" in html or "bots use DuckDuckGo" in html):
+        return True
+    if "google." in host and ("/httpservice/retry/enablejs" in html or "unusual traffic" in html or "/sorry/" in final_url):
+        return True
+    return False
 
 
 def search_query(final_url, body=None):

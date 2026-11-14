@@ -590,7 +590,253 @@ const SETTINGS_KEYS = [
   "consensus_agent", "agent_chain", "agent_prompt", "plan_prompt", "models",
   "depth", "line_length", "search", "plan_queries", "source_chars", "max_tokens", "deadline",
   "silence", "tuning", "pack_price", "tracks_per_pack", "smartgen_prompt",
+  "consensus_agent_and_synthesis", "smartgen_extraction", "depth_modes_and_search",
+  "imagine_and_media_generation", "theme_pack_and_server_tuning",
 ];
+
+function buildFormInitial(cfg) {
+  const defInit = (formBundle && formBundle.defaultInitial) || {};
+  const defSettings = defInit.settings || {};
+  const provs = (cfg.providers || []).map((r) => ({
+    provider_name: r.provider_name || r.name || "NVIDIA",
+    api_endpoint_url: r.api_endpoint_url || r.endpoint || r.url || "",
+    api_key: r.api_key || r.key || "",
+    extra_model_ids: Array.isArray(r.extra_model_ids || r.models)
+      ? (r.extra_model_ids || r.models).join(", ")
+      : String(r.extra_model_ids || r.models || ""),
+    name: r.provider_name || r.name || "NVIDIA",
+    endpoint: r.api_endpoint_url || r.endpoint || r.url || "",
+    key: r.api_key || r.key || "",
+    models: Array.isArray(r.extra_model_ids || r.models)
+      ? (r.extra_model_ids || r.models).join(", ")
+      : String(r.extra_model_ids || r.models || ""),
+  }));
+  const roster = cfg.models || defSettings.models || DEFAULT_ROSTER;
+  const settingsObj = { ...defSettings };
+  for (const k of SETTINGS_KEYS) {
+    if (k in cfg && cfg[k] !== undefined) settingsObj[k] = cfg[k];
+  }
+  return {
+    host: cfg.localhost_port || defInit.host || 6420,
+    providers: provs,
+    themes: cfg.themes || "https://collider-themes.ebridavid.workers.dev",
+    bypass: Boolean(cfg.store_bypass),
+    uses: provs.map((r) => providerUses(r, roster)),
+    key_catalog: defInit.key_catalog || [],
+    model_catalog: defInit.model_catalog || [],
+    settings: settingsObj,
+  };
+}
+
+// ---------- KV File Library & Imagine ----------
+const FILE_SOURCES = ["uploaded", "generated", "downloaded"];
+const FILE_TEXT_EXT = new Set([
+  ".txt", ".md", ".markdown", ".csv", ".json", ".xml", ".yaml", ".yml", ".html", ".htm", ".py", ".dart", ".js", ".ts",
+  ".css", ".sql", ".log", ".ini", ".toml", ".sh", ".bat", ".ps1", ".c", ".cpp", ".h", ".java", ".go", ".rs",
+]);
+const FILE_KINDS = {
+  image: [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"],
+  audio: [".mp3", ".wav", ".ogg", ".m4a", ".flac", ".aac"],
+  video: [".mp4", ".webm", ".mov", ".mkv"],
+  pdf: [".pdf"],
+};
+const MIME = {
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
+  ".bmp": "image/bmp", ".svg": "image/svg+xml", ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
+  ".m4a": "audio/mp4", ".flac": "audio/flac", ".aac": "audio/aac", ".mp4": "video/mp4", ".webm": "video/webm",
+  ".mov": "video/quicktime", ".mkv": "video/x-matroska", ".pdf": "application/pdf", ".md": "text/markdown; charset=utf-8",
+  ".markdown": "text/markdown; charset=utf-8", ".txt": "text/plain; charset=utf-8", ".json": "application/json; charset=utf-8",
+  ".csv": "text/csv; charset=utf-8", ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8",
+};
+
+function safeName(name) {
+  const base = String(name || "").replace(/\\/g, "/").split("/").pop().trim() || "file";
+  return base.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 120) || "file";
+}
+function extOf(name) {
+  const s = String(name || "");
+  const i = s.lastIndexOf(".");
+  return i > 0 ? s.slice(i).toLowerCase() : "";
+}
+function fileKind(name) {
+  const e = extOf(name);
+  for (const [k, list] of Object.entries(FILE_KINDS)) if (list.includes(e)) return k;
+  return FILE_TEXT_EXT.has(e) ? "text" : "file";
+}
+const mimeFor = (name) => MIME[extOf(name)] || "application/octet-stream";
+
+function b64decode(text) {
+  const bin = atob(String(text || "").replace(/\s+/g, ""));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function uniqueName(env, source, name) {
+  const clean = safeName(name);
+  const dot = clean.lastIndexOf(".");
+  const base = dot > 0 ? clean.slice(0, dot) : clean;
+  const ext = dot > 0 ? clean.slice(dot) : "";
+  let candidate = clean;
+  for (let i = 2; i < 100; i++) {
+    const found = await env.STATE.list({ prefix: "file:" + source + "/" + candidate, limit: 1 }).catch(() => null);
+    if (!found || !(found.keys || []).some((k) => k.name === "file:" + source + "/" + candidate)) return candidate;
+    candidate = `${base} (${i})${ext}`;
+  }
+  return `${base} (${Date.now().toString(36)})${ext}`;
+}
+
+async function putFile(env, source, name, bytes, model = "") {
+  const clean = safeName(name);
+  const size = bytes.byteLength ?? bytes.length ?? 0;
+  const value = bytes instanceof Uint8Array ? bytes.slice().buffer : bytes;
+  await env.STATE.put("file:" + source + "/" + clean, value, {
+    metadata: { size, modified: Date.now() / 1000, kind: fileKind(clean), model: String(model || "") },
+  });
+  return clean;
+}
+
+async function saveFile(env, source, name, bytes, model = "") {
+  return putFile(env, source, await uniqueName(env, source, name), bytes, model);
+}
+
+async function listFiles(env) {
+  const out = { uploaded: [], generated: [], downloaded: [] };
+  let cursor;
+  do {
+    const page = await env.STATE.list({ prefix: "file:", cursor });
+    for (const k of page.keys || []) {
+      const rest = k.name.slice(5);
+      const at = rest.indexOf("/");
+      if (at < 0) continue;
+      const source = rest.slice(0, at);
+      if (!out[source]) continue;
+      const name = rest.slice(at + 1);
+      const md = k.metadata || {};
+      out[source].push({
+        name,
+        source,
+        size: md.size || 0,
+        modified: md.modified || 0,
+        kind: md.kind || fileKind(name),
+        url: "/files/" + source + "/" + encodeURIComponent(name),
+        model: md.model || "",
+      });
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  for (const s of FILE_SOURCES) out[s].sort((a, b) => b.modified - a.modified);
+  return out;
+}
+
+async function fileBytes(env, source, name) {
+  if (!FILE_SOURCES.includes(source)) return null;
+  try {
+    return await env.STATE.get("file:" + source + "/" + safeName(name), "arrayBuffer");
+  } catch (_) {
+    return null;
+  }
+}
+
+async function serveFile(env, source, name, request) {
+  const buf = await fileBytes(env, source, name);
+  if (!buf) return new Response("", { status: 404 });
+  const clean = safeName(name);
+  const size = buf.byteLength;
+  const headers = {
+    "Content-Type": mimeFor(clean),
+    "Cache-Control": "private, max-age=3600",
+    "Accept-Ranges": "bytes",
+    "Content-Length": String(size),
+  };
+  return new Response(buf, { headers });
+}
+
+// ---------- In-App Browser Proxy (/api/page & /api/fetch) ----------
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+const PAGE_SCRIPT_TEMPLATE = `<script>(function(){
+var REAL=__REAL__,O=location.origin,P=O+'/api/page?url=',F=O+'/api/fetch?url=';
+function abs(u){try{return new URL(u,REAL).toString()}catch(e){return u}}
+function go(u){location.href=P+encodeURIComponent(abs(u))}
+function report(){try{parent.postMessage({collider:'nav',url:REAL,title:document.title||''},'*')}catch(e){}}
+report();document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);
+document.addEventListener('click',function(e){
+ if(e.defaultPrevented||e.button)return;
+ var a=e.target&&e.target.closest&&e.target.closest('a[href]');if(!a)return;
+ var h=a.getAttribute('href');if(!h||/^(javascript|mailto|tel|data|blob):/i.test(h))return;
+ if(h.charAt(0)==='#'){e.preventDefault();var t=document.getElementById(h.slice(1))||document.getElementsByName(h.slice(1))[0];if(t)t.scrollIntoView();return}
+ var u=abs(h);if(!/^https?:/.test(u))return;
+ e.preventDefault();e.stopPropagation();go(u);
+},true);
+document.addEventListener('submit',function(e){
+ var f=e.target,m=(f.getAttribute('method')||'get').toLowerCase(),act=abs(f.getAttribute('action')||REAL);
+ e.preventDefault();
+ if(m==='get'||/(^|\\.)duckduckgo\\.com$/.test(new URL(act).hostname)){var u=new URL(act);u.search='';new FormData(f).forEach(function(v,k){if(typeof v==='string')u.searchParams.append(k,v)});go(u.toString())}
+ else{var pf=document.createElement('form');pf.method='post';pf.action=P+encodeURIComponent(act);pf.style.display='none';
+  new FormData(f).forEach(function(v,k){if(typeof v==='string'){var i=document.createElement('input');i.type='hidden';i.name=k;i.value=v;pf.appendChild(i)}});
+  document.documentElement.appendChild(pf);sub.call(pf)}
+},true);
+window.open=function(u){if(u)go(u);return null};
+var sub=HTMLFormElement.prototype.submit;HTMLFormElement.prototype.submit=function(){var e=new Event('submit',{bubbles:true,cancelable:true});if(this.dispatchEvent(e))sub.call(this)};
+if(window.navigation)navigation.addEventListener('navigate',function(e){var u=e.destination&&e.destination.url;if(e.cancelable&&u&&/^https?:/.test(u)&&u.indexOf(O)!==0){e.preventDefault();go(u)}});
+['pushState','replaceState'].forEach(function(k){var o=history[k];history[k]=function(s,t){try{return o.call(history,s,t)}catch(e){}}});
+function via(u){var a=abs(u);return(/^https?:/.test(a)&&a.indexOf(O)!==0)?F+encodeURIComponent(a):u}
+var of=window.fetch;if(of){window.fetch=function(i,n){try{if(typeof i==='string')i=via(i);else if(i&&i.url)i=new Request(via(i.url),i)}catch(e){}return of.call(window,i,n)}}
+var oo=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){try{arguments[1]=via(u)}catch(e){}return oo.apply(this,arguments)};
+})();</script>`;
+
+function escapeHtml(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function prepareHtml(html, finalUrl) {
+  let out = String(html || "")
+    .replace(/<meta[^>]+http-equiv=["']?Content-Security-Policy[^>]*>/gi, "")
+    .replace(/<base\b[^>]*>/gi, "");
+  const safeFinal = String(finalUrl || "").replace(/"/g, "%22");
+  const bars = "<style>html{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{width:0;height:0;display:none}</style>";
+  const inject = `<base href="${safeFinal}">` + bars + PAGE_SCRIPT_TEMPLATE.replace("__REAL__", JSON.stringify(finalUrl));
+  const m = /<head[^>]*>/i.exec(out);
+  if (m) {
+    const idx = m.index + m[0].length;
+    return out.slice(0, idx) + inject + out.slice(idx);
+  }
+  return inject + out;
+}
+
+function resultsPage(query, results) {
+  const rows = (results || [])
+    .filter((r) => r && r.url)
+    .map((r) => {
+      let host = "";
+      try {
+        host = new URL(r.url).hostname;
+      } catch (_) {}
+      const excerpt = String(r.content || "")
+        .replace(/[#*`|>]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 220);
+      return `<div class="r"><a href="${escapeHtml(r.url)}">${escapeHtml(r.title || r.url)}</a><div class="u">${escapeHtml(host)}</div><p>${escapeHtml(excerpt)}</p></div>`;
+    })
+    .join("");
+  return (
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    `<title>${escapeHtml(query)} - Search</title><style>` +
+    'body{margin:0;padding:14px 16px;font:15px/1.45 system-ui,"Segoe UI",sans-serif;color:#222;background:#f7f7f7}' +
+    'form{display:flex;margin:0 0 14px}input{flex:1;min-width:0;font:inherit;padding:10px 12px;border:1px solid #d0d0d0;border-radius:6px;background:#fff}' +
+    '.r{background:#fff;border-radius:8px;padding:12px 14px;margin:0 0 10px}.r a{color:#1a3fb0;font-size:17px;text-decoration:none}' +
+    '.u{color:#20692b;font-size:13px;margin:2px 0 4px;overflow-wrap:anywhere}.r p{margin:0;color:#444}</style></head><body>' +
+    `<form action="https://www.google.com/search" method="get"><input name="q" value="${escapeHtml(query)}" placeholder="Search the web..."></form>` +
+    rows +
+    "</body></html>"
+  );
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -598,22 +844,9 @@ export default {
     const path = url.pathname;
 
     // ---- Interactive /config page (online permanent configuration UI) ----
-    if (path === "/config" && request.method === "GET") {
+    if ((path === "/config" || path === "/configurator.html") && request.method === "GET") {
       const cfg = await loadLiveConfig(env);
-      const provs = cfg.providers || [];
-      const roster = cfg.models || DEFAULT_ROSTER;
-      const settingsObj = {};
-      for (const k of SETTINGS_KEYS) {
-        if (k in cfg) settingsObj[k] = cfg[k];
-      }
-      const initial = {
-        host: "",
-        providers: provs,
-        themes: cfg.themes || "https://collider-themes.ebridavid.workers.dev",
-        bypass: Boolean(cfg.store_bypass),
-        uses: provs.map((r) => providerUses(r, roster)),
-        settings: settingsObj,
-      };
+      const initial = buildFormInitial(cfg);
       const html = formBundle.form
         .replace("WHERE", JSON.stringify("Cloudflare Edge KV (collider-argon-6420)"))
         .replace("INITIAL", JSON.stringify(initial));
@@ -623,20 +856,42 @@ export default {
       });
     }
 
+    if (path === "/api/config/data" && request.method === "GET") {
+      const cfg = await loadLiveConfig(env);
+      return json(buildFormInitial(cfg));
+    }
+
     if (path === "/api/config" && request.method === "POST") {
       const b = await request.json().catch(() => ({}));
       const cur = await loadLiveConfig(env);
+      const rawProvs = Array.isArray(b.providers)
+        ? b.providers
+        : Array.isArray(b.api_providers_and_keys)
+          ? b.api_providers_and_keys
+          : cur.providers;
+      const cleanProvs = (rawProvs || [])
+        .filter((r) => r && (r.provider_name || r.api_endpoint_url || r.api_key || r.name || r.endpoint || r.key))
+        .map((r) => ({
+          provider_name: r.provider_name || r.name || "NVIDIA",
+          api_endpoint_url: r.api_endpoint_url || r.endpoint || r.url || "",
+          api_key: r.api_key || r.key || "",
+          extra_model_ids: r.extra_model_ids || r.models || "",
+          name: r.provider_name || r.name || "NVIDIA",
+          endpoint: r.api_endpoint_url || r.endpoint || r.url || "",
+          key: r.api_key || r.key || "",
+          models: r.extra_model_ids || r.models || "",
+        }));
       const next = {
         ...cur,
         ...(b.settings || {}),
-        providers: Array.isArray(b.providers)
-          ? b.providers.filter((r) => r && (r.name || r.endpoint || r.key))
-          : cur.providers,
+        localhost_port: Number(b.host) || cur.localhost_port || 6420,
+        providers: cleanProvs,
         themes: String(b.themes || "").trim() || cur.themes,
         store_bypass: Boolean(b.bypass),
       };
       await env.STATE.put("argon6420:config", JSON.stringify(next));
-      return json({ ok: true });
+      const roster = next.models || DEFAULT_ROSTER;
+      return json({ ok: true, uses: cleanProvs.map((r) => providerUses(r, roster)) });
     }
 
     // ---- API ----
@@ -852,29 +1107,222 @@ export default {
       }
     }
 
-    if (path === "/api/files") return json({ uploaded: [], generated: [], downloaded: [] });
-    if (path === "/api/files/thumb") return new Response("", { status: 404 });
+    // ---- Files: upload, generated notes, downloads, listing, serving ----
+    if (path === "/api/files" && request.method === "GET") {
+      return json(await listFiles(env));
+    }
+
+    if (path === "/api/files/thumb" && request.method === "GET") {
+      const source = url.searchParams.get("source") || "";
+      const name = safeName(url.searchParams.get("name") || "");
+      if (!FILE_SOURCES.includes(source) || fileKind(name) !== "image") return new Response("", { status: 404 });
+      const buf = await fileBytes(env, source, name);
+      if (!buf) return new Response("", { status: 404 });
+      return new Response(buf, { headers: { "Content-Type": mimeFor(name), "Cache-Control": "private, max-age=3600" } });
+    }
+
+    if (path === "/api/files/upload" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      try {
+        const bytes = b64decode(body.b64 || "");
+        if (!bytes.length) return json({ error: "empty" }, 400);
+        const name = await saveFile(env, "uploaded", body.name || "file", bytes, "");
+        return json({ name });
+      } catch (e) {
+        return json({ error: String((e && e.message) || e).slice(0, 120) }, 500);
+      }
+    }
+
+    if (path === "/api/files/generated" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      try {
+        const bytes = new TextEncoder().encode(String(body.text || ""));
+        const name = await saveFile(env, "generated", body.name || "note.md", bytes, String(body.model || ""));
+        return json({ name });
+      } catch (e) {
+        return json({ error: String((e && e.message) || e).slice(0, 120) }, 500);
+      }
+    }
+
+    if (path === "/api/files/save" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      try {
+        const bytes = b64decode(body.b64 || "");
+        const wanted = safeName(body.name || "document.docx");
+        const name = await saveFile(env, "generated", wanted, bytes, String(body.model || "Documents"));
+        return json({ name });
+      } catch (e) {
+        return json({ error: String((e && e.message) || e).slice(0, 120) }, 500);
+      }
+    }
+
+    if (path === "/api/files/download" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      let target = String(body.url || "").trim();
+      if (!target) return json({ error: "bad url" }, 400);
+      if (!/^https?:\/\//i.test(target)) {
+        target = new URL(target.startsWith("/") ? target : "/assets/" + target, url.origin).toString();
+      }
+      try {
+        let r;
+        const targetUrl = new URL(target);
+        if (targetUrl.origin === url.origin && env.ASSETS) {
+          r = await env.ASSETS.fetch(new Request(targetUrl.toString()));
+        } else {
+          r = await fetch(target, {
+            headers: { "User-Agent": BROWSER_UA },
+            signal: AbortSignal.timeout(60000),
+          });
+        }
+        if (!r.ok) return json({ error: "HTTP " + r.status }, 502);
+        const bytes = new Uint8Array(await r.arrayBuffer());
+        let name = "";
+        const disp = r.headers.get("Content-Disposition") || "";
+        const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disp);
+        if (m) {
+          try {
+            name = decodeURIComponent(m[1]);
+          } catch (_) {
+            name = m[1];
+          }
+        }
+        if (!name) {
+          try {
+            const pathname = new URL(r.url || target).pathname;
+            name = decodeURIComponent(pathname.split("/").filter(Boolean).pop() || "");
+          } catch (_) {}
+        }
+        if (!extOf(name)) {
+          const ct = (r.headers.get("Content-Type") || "").toLowerCase();
+          if (ct.includes("jpeg") || ct.includes("jpg")) name = (name || "image") + ".jpg";
+          else if (ct.includes("png")) name = (name || "image") + ".png";
+          else if (ct.includes("webp")) name = (name || "image") + ".webp";
+        }
+        const saved = await saveFile(env, "downloaded", name || "download.jpg", bytes, "");
+        return json({ name: saved });
+      } catch (e) {
+        return json({ error: String((e && e.message) || e).slice(0, 120) }, 502);
+      }
+    }
+
+    if (path.startsWith("/files/")) {
+      const bits = path.slice(7).split("/");
+      let source = "", name = "";
+      try {
+        source = decodeURIComponent(bits.shift() || "");
+        name = decodeURIComponent(bits.join("/") || "");
+      } catch (_) {
+        return new Response("", { status: 400 });
+      }
+      return serveFile(env, source, name, request);
+    }
+
     if (path.startsWith("/api/files/")) return json({ ok: true });
+
     if (path === "/api/imagine") {
-      if (request.method === "POST") return json({ ok: true, items: [] });
-      return json({ items: [], models: [] });
+      try {
+        const raw = await env.STATE.get("imagine");
+        const items = raw ? JSON.parse(raw) : [];
+        return json({ items: Array.isArray(items) ? items : [], models: [] });
+      } catch (_) {
+        return json({ items: [], models: [] });
+      }
+    }
+
+    // ---- In-App Browser (/api/fetch & /api/page) ----
+    if (path === "/api/fetch") {
+      let target = url.searchParams.get("url") || "";
+      if (!target) return new Response("", { status: 400 });
+      if (!/^https?:\/\//i.test(target)) target = "https://" + target;
+      try {
+        const r = await fetch(target, {
+          method: request.method,
+          headers: { "User-Agent": BROWSER_UA, Accept: "*/*" },
+          body: request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined,
+          signal: AbortSignal.timeout(25000),
+        });
+        return new Response(await r.arrayBuffer(), {
+          status: r.status || 200,
+          headers: {
+            "Content-Type": r.headers.get("Content-Type") || "application/octet-stream",
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      } catch (e) {
+        return new Response(String((e && e.message) || e).slice(0, 200), { status: 502 });
+      }
     }
 
     if (path === "/api/page") {
-      const target = url.searchParams.get("url") || "";
-      if (!/^https?:\/\//i.test(target)) return new Response("", { status: 400 });
+      let target = (url.searchParams.get("url") || "").trim();
+      if (!target) return new Response("", { status: 400 });
+      if (!/^https?:\/\//i.test(target)) target = "https://" + target;
+      const ddgMatch = /^https?:\/\/(?:www\.)?duckduckgo\.com\/\?(.*)$/i.exec(target);
+      if (ddgMatch) target = "https://html.duckduckgo.com/html/?" + ddgMatch[1];
+
+      try {
+        let parsedTarget = new URL(target);
+        if (parsedTarget.hostname.endsWith("duckduckgo.com") && parsedTarget.pathname.startsWith("/l/")) {
+          const uddg = parsedTarget.searchParams.get("uddg");
+          if (uddg) {
+            target = uddg;
+            parsedTarget = new URL(target);
+          }
+        }
+      } catch (_) {}
+
       try {
         const r = await fetch(target, {
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; Collider/1.0)", Accept: "text/html,*/*" },
+          method: request.method,
+          headers: {
+            "User-Agent": BROWSER_UA,
+            "Accept-Language": "en-US,en;q=0.9",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          },
+          body: request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined,
           signal: AbortSignal.timeout(30000),
         });
-        const bodyText = await r.text();
-        return new Response(bodyText, {
+        const finalUrl = r.url || target;
+        const ctype = r.headers.get("Content-Type") || "text/html";
+        if (ctype.toLowerCase().includes("html")) {
+          let text = await r.text();
+          let host = "";
+          let q = "";
+          try {
+            const u = new URL(finalUrl);
+            host = u.hostname.toLowerCase();
+            q = u.searchParams.get("q") || "";
+          } catch (_) {}
+          const isChallenge =
+            (host.endsWith("duckduckgo.com") && (text.includes("anomaly-modal") || text.includes("bots use DuckDuckGo"))) ||
+            (host.includes("google.") && (text.includes("/httpservice/retry/enablejs") || text.includes("unusual traffic") || finalUrl.includes("/sorry/")));
+          if (isChallenge && q) {
+            const cfg = await loadLiveConfig(env);
+            const found = await webSearch(cfg, q, "internet");
+            if (found && found.length) {
+              text = resultsPage(q, found);
+            }
+          }
+          const html = prepareHtml(text, finalUrl);
+          return new Response(html, {
+            status: 200,
+            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+          });
+        }
+        return new Response(await r.arrayBuffer(), {
+          status: 200,
+          headers: { "Content-Type": ctype, "Cache-Control": "no-store" },
+        });
+      } catch (e) {
+        const errHtml =
+          "<html><body style='font:15px system-ui;padding:24px;color:#464652;background:#E1E8EB'>" +
+          `<div>${escapeHtml(target)}</div><div style='color:#7F7F7F;margin-top:8px'>${escapeHtml(String((e && e.message) || e).slice(0, 160))}</div>` +
+          `<script>try{parent.postMessage({collider:'nav',url:${JSON.stringify(target)},title:''},'*')}catch(e){}</script></body></html>`;
+        return new Response(errHtml, {
           status: 200,
           headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         });
-      } catch (_) {
-        return new Response("", { status: 502 });
       }
     }
 
