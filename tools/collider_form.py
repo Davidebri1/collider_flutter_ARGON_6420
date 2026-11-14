@@ -485,9 +485,12 @@ input.color-inp {
 <body>
 <div class="topbar">
   <div class="topbar-inner">
-    <div class="brand">
-      <h1>Quorum Launch Configurator</h1>
-      <span>All decisions bound to data\collider_config.json</span>
+    <div class="brand" style="width:100%;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px">
+        <h1>Collider Launch Configurator — Argon 6420</h1>
+        <span>All decisions bound to data\collider_config.json</span>
+      </div>
+      <a href="/" class="btn btn-accent" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">← Open Collider App</a>
     </div>
     <nav class="nav-pills">
       <a href="#sec-host">1. Host Port</a>

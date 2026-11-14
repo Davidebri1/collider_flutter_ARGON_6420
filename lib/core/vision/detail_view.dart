@@ -96,7 +96,9 @@ class _DetailViewState extends State<DetailView> with SingleTickerProviderStateM
       animation: t,
       builder: (context, _) {
         final v = t.value;
-        return Stack(fit: StackFit.expand, children: [
+        return Material(
+          type: MaterialType.transparency,
+          child: Stack(fit: StackFit.expand, children: [
           // The room: out of focus, and darker toward the top and bottom edges than behind the content, so the eye
           // settles in the middle.
           GestureDetector(
@@ -151,7 +153,8 @@ class _DetailViewState extends State<DetailView> with SingleTickerProviderStateM
               ),
             ),
           ),
-        ]);
+        ]),
+        );
       },
     );
   }

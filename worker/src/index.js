@@ -809,6 +809,32 @@ function prepareHtml(html, finalUrl) {
   return inject + out;
 }
 
+function searchHomePage() {
+  return (
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Google</title><style>' +
+    'body{margin:0;padding:36px 18px 24px;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#202124;background:#fff;display:flex;flex-direction:column;align-items:center}' +
+    '.logo{font-size:42px;font-weight:700;letter-spacing:-1px;margin:18px 0 22px;user-select:none}' +
+    '.logo span:nth-child(1){color:#4285F4}.logo span:nth-child(2){color:#EA4335}.logo span:nth-child(3){color:#FBBC05}' +
+    '.logo span:nth-child(4){color:#4285F4}.logo span:nth-child(5){color:#34A853}.logo span:nth-child(6){color:#EA4335}' +
+    'form{width:100%;max-width:480px;display:flex;gap:8px;margin-bottom:26px}' +
+    'input{flex:1;min-width:0;font:16px inherit;padding:12px 16px;border:1px solid #dfe1e5;border-radius:24px;outline:none;box-shadow:0 1px 6px rgba(32,33,36,.12)}' +
+    'button{padding:0 18px;border-radius:24px;border:1px solid #dadce0;background:#f8f9fa;color:#3c4043;font:600 14px inherit;cursor:pointer}' +
+    '.grid{width:100%;max-width:480px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px}' +
+    '.card{display:flex;flex-direction:column;padding:12px 14px;border-radius:14px;background:#f8f9fa;border:1px solid #eef0f2;text-decoration:none;color:#202124}' +
+    '.card b{font-size:14px;color:#1a73e8;margin-bottom:2px}.card span{font-size:12px;color:#5f6368}' +
+    '</style></head><body>' +
+    '<div class="logo"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></div>' +
+    '<form action="https://www.google.com/search" method="get"><input name="q" placeholder="Search the web or enter a topic..." autofocus><button type="submit">Search</button></form>' +
+    '<div class="grid">' +
+    '<a class="card" href="https://en.wikipedia.org/wiki/Main_Page"><b>Wikipedia</b><span>Free Encyclopedia</span></a>' +
+    '<a class="card" href="https://news.ycombinator.com/"><b>Hacker News</b><span>Tech &amp; Startup News</span></a>' +
+    '<a class="card" href="https://www.google.com/search?q=spatial+computing+visionOS"><b>Spatial Computing</b><span>Search visionOS &amp; Optics</span></a>' +
+    '<a class="card" href="https://arxiv.org/"><b>arXiv.org</b><span>Open-Access Research</span></a>' +
+    '</div></body></html>'
+  );
+}
+
 function resultsPage(query, results) {
   const rows = (results || [])
     .filter((r) => r && r.url)
@@ -1272,6 +1298,47 @@ export default {
         }
       } catch (_) {}
 
+      let origQuery = "";
+      let isBareSearchHome = false;
+      try {
+        const parsedOrig = new URL(target);
+        const oh = parsedOrig.hostname.toLowerCase();
+        origQuery = parsedOrig.searchParams.get("q") || "";
+        if (
+          (oh === "google.com" || oh === "www.google.com" || oh === "duckduckgo.com" || oh === "www.duckduckgo.com") &&
+          (parsedOrig.pathname === "/" || parsedOrig.pathname === "" || parsedOrig.pathname === "/webhp") &&
+          !origQuery
+        ) {
+          isBareSearchHome = true;
+        }
+      } catch (_) {}
+
+      if (isBareSearchHome) {
+        const html = prepareHtml(searchHomePage(), "https://www.google.com/");
+        return new Response(html, {
+          status: 200,
+          headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+        });
+      }
+
+      if (origQuery) {
+        try {
+          const parsedOrig = new URL(target);
+          const oh = parsedOrig.hostname.toLowerCase();
+          if (oh.includes("google.") || oh.endsWith("duckduckgo.com")) {
+            const cfg = await loadLiveConfig(env);
+            const found = await webSearch(cfg, origQuery, "internet");
+            if (found && found.length) {
+              const html = prepareHtml(resultsPage(origQuery, found), target);
+              return new Response(html, {
+                status: 200,
+                headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
       try {
         const r = await fetch(target, {
           method: request.method,
@@ -1288,20 +1355,30 @@ export default {
         if (ctype.toLowerCase().includes("html")) {
           let text = await r.text();
           let host = "";
-          let q = "";
+          let q = origQuery;
           try {
             const u = new URL(finalUrl);
             host = u.hostname.toLowerCase();
-            q = u.searchParams.get("q") || "";
+            if (!q) q = u.searchParams.get("q") || "";
+            if (!q && u.searchParams.get("continue")) {
+              const cont = new URL(u.searchParams.get("continue"));
+              q = cont.searchParams.get("q") || "";
+            }
           } catch (_) {}
           const isChallenge =
             (host.endsWith("duckduckgo.com") && (text.includes("anomaly-modal") || text.includes("bots use DuckDuckGo"))) ||
-            (host.includes("google.") && (text.includes("/httpservice/retry/enablejs") || text.includes("unusual traffic") || finalUrl.includes("/sorry/")));
-          if (isChallenge && q) {
-            const cfg = await loadLiveConfig(env);
-            const found = await webSearch(cfg, q, "internet");
-            if (found && found.length) {
-              text = resultsPage(q, found);
+            (host.includes("google.") && (text.includes("/httpservice/retry/enablejs") || text.includes("unusual traffic") || text.includes("g-recaptcha") || finalUrl.includes("/sorry/")));
+          if (isChallenge) {
+            if (q) {
+              const cfg = await loadLiveConfig(env);
+              const found = await webSearch(cfg, q, "internet");
+              if (found && found.length) {
+                text = resultsPage(q, found);
+              } else {
+                text = searchHomePage();
+              }
+            } else {
+              text = searchHomePage();
             }
           }
           const html = prepareHtml(text, finalUrl);

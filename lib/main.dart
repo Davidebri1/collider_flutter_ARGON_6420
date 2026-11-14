@@ -198,6 +198,8 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
       _activeDrawer = 'premium';
     } else if (d == 'theme' || d == 'themes') {
       _activeDrawer = 'themes';
+    } else if (d == 'smart_gen' || d == 'smartgen' || d == 'notes') {
+      _activeDrawer = 'smartgen';
     } else if (d == 'music') {
       _activeDrawer = 'files';
       _filesPlace = 'music';
