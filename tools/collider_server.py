@@ -104,8 +104,8 @@ def _init_caches():
             dirty = True
         prompt = sess.get("prompt") or ""
         cons = sess.get("consensus") or {}
-        if "status" in cons:
-            cons.pop("status", None)
+        if cons and not cons.get("status") and (cons.get("score") or cons.get("summary") or cons.get("line")):
+            cons["status"] = "done"
             dirty = True
         cons_summary = sanitize_model_output((cons.get("summary") or "").strip())
         if cons_summary != (cons.get("summary") or "").strip():
@@ -160,7 +160,7 @@ def _init_caches():
                 if mid in res and cons["essences"].get(mid) and not res[mid].get("line"):
                     res[mid]["line"] = clean_line(cons["essences"][mid])
                     dirty = True
-        if cons_summary and cons.get("line") != cons_summary:
+        if cons_summary and not cons.get("line"):
             cons["line"] = cons_summary
             dirty = True
         if cons.get("score") and "/" in str(cons.get("score")) and done_count > 0:
