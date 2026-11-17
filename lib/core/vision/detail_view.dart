@@ -93,7 +93,7 @@ class _DetailViewState extends State<DetailView> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final t = CurvedAnimation(parent: _in, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+    final t = CurvedAnimation(parent: _in, curve: Curves.easeOutCubic);
     final all = [
       ...widget.actions,
       if (widget.onSend != null)

@@ -173,7 +173,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
 
   /// The rail ornament shows on the resting canvas and durable work surfaces.
   bool get _railVisible {
-    if (_localHistoryModel != null || _zoomedMessage != null || _browserOpen) return false;
+    if (_browserOpen) return false;
     const surfaces = {null, 'market', 'themes', 'premium'};
     return surfaces.contains(_activeDrawer);
   }
@@ -1160,9 +1160,12 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     final openId = openItem?.modelDef.id;
     final sideBySide = openItem != null && !media;
     final railVisible = _railVisible;
+    final modalOverlayOpen = _localHistoryModel != null ||
+        _zoomedMessage != null ||
+        const {'apps', 'settings', 'history', 'upgrade', 'skills', 'consensus'}.contains(_activeDrawer);
     final screenW = MediaQuery.sizeOf(context).width;
     final screenH = MediaQuery.sizeOf(context).height;
-    final availW = screenW - (railVisible ? (isMobile ? 104.0 : 140.0) : 24.0);
+    final availW = screenW - (railVisible ? (isMobile ? 124.0 : 140.0) : 24.0);
     final tickerW = sideBySide
         ? availW.clamp(260.0, 620.0)
         : (media
@@ -1320,8 +1323,6 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
             bottom: 78,
             child: Builder(builder: (context) {
               final resting = !_browserOpen &&
-                  _localHistoryModel == null &&
-                  _zoomedMessage == null &&
                   !(isMobile && _isMobileSideNavOpen) &&
                   !const {
                     'premium',
@@ -1332,16 +1333,19 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
                     'consensus',
                     'documents',
                   }.contains(_activeDrawer);
+              final plane1Interactive = resting && !modalOverlayOpen;
               return Visibility(
                 visible: resting,
                 maintainState: true,
                 child: IgnorePointer(
-                  ignoring: !resting,
+                  ignoring: !plane1Interactive,
                   child: ExcludeFocus(
-                    excluding: !resting,
-                    child: TickerMode(
-                      enabled: resting,
-                  child: SafeArea(
+                    excluding: !plane1Interactive,
+                    child: ExcludeSemantics(
+                      excluding: !plane1Interactive,
+                      child: TickerMode(
+                        enabled: resting,
+                        child: SafeArea(
                     bottom: false,
                     child: Align(
                       alignment: Alignment.bottomCenter,
@@ -1440,11 +1444,12 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
                           ],
                         ),
                       ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
+              ),
+            ),
+              ),
               );
             }),
           ),
@@ -1790,14 +1795,26 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
               Positioned(
                 left: 2,
                 bottom: 84,
-                child: _buildSideNav(isMobile: true),
+                child: IgnorePointer(
+                  ignoring: modalOverlayOpen,
+                  child: ExcludeSemantics(
+                    excluding: modalOverlayOpen,
+                    child: _buildSideNav(isMobile: true),
+                  ),
+                ),
               ),
           ] else ...[
             if (railVisible)
               Positioned(
                 left: 12,
                 bottom: 84,
-                child: _buildSideNav(isMobile: false),
+                child: IgnorePointer(
+                  ignoring: modalOverlayOpen,
+                  child: ExcludeSemantics(
+                    excluding: modalOverlayOpen,
+                    child: _buildSideNav(isMobile: false),
+                  ),
+                ),
               ),
           ],
 

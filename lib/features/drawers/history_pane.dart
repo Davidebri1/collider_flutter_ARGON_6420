@@ -47,7 +47,6 @@ class _HistoryPaneState extends State<HistoryPane> with SingleTickerProviderStat
   late final Animation<double> _curve = CurvedAnimation(
     parent: _ctrl,
     curve: Curves.easeOutCubic,
-    reverseCurve: Curves.easeInCubic,
   );
   bool _closing = false;
 

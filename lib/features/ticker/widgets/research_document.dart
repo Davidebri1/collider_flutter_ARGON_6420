@@ -39,7 +39,6 @@ class _ResearchDocumentState extends State<ResearchDocument> with SingleTickerPr
   late final Animation<double> _curve = CurvedAnimation(
     parent: _ctrl,
     curve: const Cubic(0.2, 0.9, 0.25, 1),
-    reverseCurve: Curves.easeInCubic,
   );
   bool _closing = false;
 

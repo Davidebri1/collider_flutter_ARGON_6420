@@ -45,7 +45,6 @@ class _AppsPopupPaneState extends State<AppsPopupPane> with SingleTickerProvider
   late final Animation<double> _curve = CurvedAnimation(
     parent: _ctrl,
     curve: Curves.easeOutCubic,
-    reverseCurve: Curves.easeInCubic,
   );
   bool _closing = false;
 
@@ -150,17 +149,19 @@ class _AppsPopupPaneState extends State<AppsPopupPane> with SingleTickerProvider
                     child: GestureDetector(
                       onTap: () {},
                       child: Stack(
-                        clipBehavior: Clip.none,
                         children: [
-                          VGlass(
-                            material: VMaterial.modal,
-                            radius: VRadius.card,
-                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-                            child: grid,
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, right: 8),
+                            child: VGlass(
+                              material: VMaterial.modal,
+                              radius: VRadius.card,
+                              padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                              child: grid,
+                            ),
                           ),
                           Positioned(
-                            top: -7,
-                            right: -7,
+                            top: 0,
+                            right: 0,
                             child: VCircleButton(
                               icon: Icons.close_rounded,
                               size: 26,
