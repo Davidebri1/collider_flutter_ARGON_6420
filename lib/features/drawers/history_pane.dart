@@ -349,7 +349,7 @@ class _PreviewState extends State<_Preview> {
             Text(def?.label ?? mid, style: VType.caption(color: VColors.textSecondary, weight: FontWeight.w600).copyWith(fontSize: 10)),
             const SizedBox(height: 3),
             text == null
-                ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 1.5, color: VColors.textSecondary))
+                ? Text('…', style: VType.callout(weight: FontWeight.w400).copyWith(fontSize: 11, color: VColors.textSecondary))
                 : MdText(text, style: VType.callout(weight: FontWeight.w400).copyWith(fontSize: 11, height: 1.38)),
           ],
         ),

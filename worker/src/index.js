@@ -174,6 +174,47 @@ async function loadLiveConfig(env) {
     themes: (kvCfg && kvCfg.themes) || "https://collider-themes.ebridavid.workers.dev",
     store_bypass: Boolean(kvCfg && kvCfg.store_bypass),
   };
+  if (Array.isArray(merged.ticker_response_models) && merged.ticker_response_models.length) {
+    merged.models = merged.ticker_response_models.map((m) => ({
+      id: m.model_id || m.id || "",
+      label: m.display_name || m.label || m.model_id || "",
+      short: m.ticker_badge || m.short || "AI",
+      provider: m.model_creator || m.provider || m.api_provider_route || "NVIDIA",
+      via: m.api_provider_route || m.via || "NVIDIA",
+      color: m.badge_color_hex || m.color || "#60A5FA",
+      temperature: m.custom_temperature !== undefined ? m.custom_temperature : (m.temperature ?? ""),
+      system: m.custom_system_instruction !== undefined ? m.custom_system_instruction : (m.system || ""),
+    })).filter((m) => m.id);
+  }
+  if (merged.consensus_and_smartgen_agents && typeof merged.consensus_and_smartgen_agents === "object") {
+    const csa = merged.consensus_and_smartgen_agents;
+    if (csa.primary_judge_model_id) merged.consensus_agent = csa.primary_judge_model_id;
+    if (Array.isArray(csa.fallback_judge_model_ids) && csa.fallback_judge_model_ids.length) merged.agent_chain = csa.fallback_judge_model_ids;
+    if (csa.consensus_summary_and_ratio_instruction) merged.agent_prompt = csa.consensus_summary_and_ratio_instruction;
+    if (csa.consensus_json_format_instruction) merged.agent_format = csa.consensus_json_format_instruction;
+    if (csa.logical_chain_length_instruction) merged.chain_prompt = csa.logical_chain_length_instruction;
+    if (csa.logical_chain_json_format_instruction) merged.chain_format = csa.logical_chain_json_format_instruction;
+    if (csa.smartgen_task_extraction_instruction) merged.smartgen_prompt = csa.smartgen_task_extraction_instruction;
+    if (csa.smartgen_json_format_instruction) merged.smartgen_format = csa.smartgen_json_format_instruction;
+  }
+  if (merged.prompt_modes_configuration && typeof merged.prompt_modes_configuration === "object") {
+    const pmc = merged.prompt_modes_configuration;
+    merged.depth = { ...(merged.depth || {}) };
+    merged.max_tokens = { ...(merged.max_tokens || {}) };
+    merged.deadline = { ...(merged.deadline || {}) };
+    for (const mk of ["chat", "internet", "research", "deep"]) {
+      if (pmc[mk] && typeof pmc[mk] === "object") {
+        if (pmc[mk].response_style_instruction) merged.depth[mk] = pmc[mk].response_style_instruction;
+        if (pmc[mk].max_response_output_tokens) merged.max_tokens[mk] = Number(pmc[mk].max_response_output_tokens);
+        if (pmc[mk].max_response_wait_timeout_seconds) merged.deadline[mk] = Number(pmc[mk].max_response_wait_timeout_seconds);
+      }
+    }
+  }
+  if (merged.live_wallpaper_themes_and_store && typeof merged.live_wallpaper_themes_and_store === "object") {
+    const lts = merged.live_wallpaper_themes_and_store;
+    if (lts.theme_catalog_worker_url) merged.themes = lts.theme_catalog_worker_url;
+    if (lts.bypass_purchase_paywall_for_testing !== undefined) merged.store_bypass = Boolean(lts.bypass_purchase_paywall_for_testing);
+  }
   if (merged.tuning && typeof merged.tuning === "object") {
     for (const k of [
       "lines_tokens", "lines_backup_tokens", "lines_timeout", "line_min", "line_max",
@@ -587,6 +628,10 @@ function describeModels(cfg) {
 }
 
 const SETTINGS_KEYS = [
+  "global_system_instruction", "custom_option_lists",
+  "ticker_response_models", "consensus_and_smartgen_agents", "prompt_modes_configuration",
+  "model_execution_and_stream_limits", "in_app_browser_and_storage_limits",
+  "discover_market_image_generation", "live_wallpaper_themes_and_store",
   "consensus_agent", "agent_chain", "agent_prompt", "plan_prompt", "models",
   "depth", "line_length", "search", "plan_queries", "source_chars", "max_tokens", "deadline",
   "silence", "tuning", "pack_price", "tracks_per_pack", "smartgen_prompt",
@@ -897,16 +942,26 @@ export default {
           : cur.providers;
       const cleanProvs = (rawProvs || [])
         .filter((r) => r && (r.provider_name || r.api_endpoint_url || r.api_key || r.name || r.endpoint || r.key))
-        .map((r) => ({
-          provider_name: r.provider_name || r.name || "NVIDIA",
-          api_endpoint_url: r.api_endpoint_url || r.endpoint || r.url || "",
-          api_key: r.api_key || r.key || "",
-          extra_model_ids: r.extra_model_ids || r.models || "",
-          name: r.provider_name || r.name || "NVIDIA",
-          endpoint: r.api_endpoint_url || r.endpoint || r.url || "",
-          key: r.api_key || r.key || "",
-          models: r.extra_model_ids || r.models || "",
-        }));
+        .map((r) => {
+          let rawKey = String(r.api_key || r.key || "").trim();
+          const pName = r.provider_name || r.name || "NVIDIA";
+          if (rawKey.includes("...")) {
+            const matchPrev = (cur.providers || []).find(
+              (p) => (p.provider_name || p.name) === pName && String(p.api_key || p.key || "").startsWith(rawKey.slice(0, 5))
+            );
+            if (matchPrev) rawKey = String(matchPrev.api_key || matchPrev.key || rawKey);
+          }
+          return {
+            provider_name: pName,
+            api_endpoint_url: r.api_endpoint_url || r.endpoint || r.url || "",
+            api_key: rawKey,
+            extra_model_ids: r.extra_model_ids || r.models || "",
+            name: pName,
+            endpoint: r.api_endpoint_url || r.endpoint || r.url || "",
+            key: rawKey,
+            models: r.extra_model_ids || r.models || "",
+          };
+        });
       const next = {
         ...cur,
         ...(b.settings || {}),

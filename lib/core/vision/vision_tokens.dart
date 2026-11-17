@@ -19,28 +19,27 @@ class VColors {
   static const Color overlayLight = Color(0x26FFFFFF); // 0.15
   static const Color overlayDark = Color(0x66000000); // 0.40
 
-  // Kit fallback surfaces
-  static const Color glassDark = Color(0xD90E121C);
-  static const Color glassDarkHeavy = Color(0xE60B0F17);
+  // Kit fallback surfaces (100% neutral achromatic visionOS frosted glass — zero blue tint)
+  static const Color glassDark = Color(0x66787878);
+  static const Color glassDarkHeavy = Color(0x78505050);
 
-  // Unified VisionOS Optical Glass Materials (Shared across Side Nav, Bottom Dock, Composer, and Ticker)
-  // Dark translucent optical glass for high contrast and crisp lettering/icon visibility over any living wallpaper.
-  static const Color glassPrompt = Color(0x8C0E121C); // Plane 2: Floating Composer (55% dark translucent glass)
-  static const Color glassResting = Color(0x940E121C); // Plane 1: Resting Ticker Window (58% dark translucent glass)
-  static const Color glassElevated = Color(0xA6101520); // Plane 3: Unified Ornaments (Side Nav Rail & Bottom Dock, 65% dark glass)
-  static const Color glassModal = Color(0xD90E121C); // Plane 4: Floating Menus & Modals (85% dark glass)
-  static const Color glassWork = Color(0xA60E121C); // Plane 3: Durable Work Windows (Smart Gen, Discover, Files, 65% dark glass)
+  // Unified VisionOS Optical Glass Materials (Neutral Achromatic Frosted Glass Substrate — R == G == B)
+  static const Color glassPrompt = Color(0x47808080); // Plane 2: Floating Composer (28% neutral frosted glass)
+  static const Color glassResting = Color(0x52808080); // Plane 1: Resting Ticker Window (32% neutral frosted glass)
+  static const Color glassElevated = Color(0x5C848484); // Plane 3: Unified Ornaments (Side Nav Rail & Bottom Dock, 36% neutral glass)
+  static const Color glassModal = Color(0x73686868); // Plane 4: Floating Menus & Modals (45% neutral frosted glass)
+  static const Color glassWork = Color(0x597C7C7C); // Plane 3: Durable Work Windows (Smart Gen, Discover, Files, 35% neutral glass)
 
-  // Apple thickness scale
-  static const Color glassThin = Color(0x730E121C);
-  static const Color glassThick = Color(0xB8101520);
-  static const Color glassUltraThin = Color(0x590E121C);
+  // Apple thickness scale (neutral achromatic)
+  static const Color glassThin = Color(0x38808080);
+  static const Color glassThick = Color(0x66707070);
+  static const Color glassUltraThin = Color(0x29808080);
 
   // Inner cell fills (no nested blur; balanced luminance contrast)
-  static const Color fillCell = Color(0x18FFFFFF); // 9.5% white
-  static const Color fillActive = Color(0x26FFFFFF); // 15% white active capsule (toned down from glaring 0x38FFFFFF)
-  static const Color fillRecessed = Color(0x47000000); // 28% black recessed well
-  static const Color fillRow = Color(0x38000000);
+  static const Color fillCell = Color(0x22FFFFFF); // 13.5% luminous white cell
+  static const Color fillActive = Color(0x36FFFFFF); // 21% luminous active capsule
+  static const Color fillRecessed = Color(0x38000000); // 22% neutral recessed well
+  static const Color fillRow = Color(0x1FFFFFFF);
 
   // Emissive Accents (Light Emittance palette)
   static const Color accentBlue = Color(0xFF0A84FF);

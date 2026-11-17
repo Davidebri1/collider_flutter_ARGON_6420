@@ -1150,6 +1150,8 @@ TUNING = {
 }
 
 SETTINGS = (
+    "global_system_instruction",
+    "custom_option_lists",
     "ticker_response_models",
     "consensus_and_smartgen_agents",
     "prompt_modes_configuration",
@@ -1161,8 +1163,10 @@ SETTINGS = (
 
 
 def own_system(mid):
+    g = str(CONFIG.get("global_system_instruction") or "").strip()
     t = next((str(m.get("system") or "").strip() for m in ROSTER if m["id"] == mid), "")
-    return t + "\n\n" if t else ""
+    parts = [p for p in (g, t) if p]
+    return "\n\n".join(parts) + "\n\n" if parts else ""
 
 
 def temperature_of(mid):
@@ -1175,13 +1179,18 @@ def temperature_of(mid):
 
 def settings_defaults():
     return {
+        "global_system_instruction": "",
+        "custom_option_lists": {},
         "ticker_response_models": [_model_to_descriptive(m) for m in DEFAULT_TICKER_MODELS],
         "consensus_and_smartgen_agents": {
             "primary_judge_model_id": CONSENSUS_AGENT,
             "fallback_judge_model_ids": list(AGENT_CHAIN),
             "consensus_summary_and_ratio_instruction": AGENT_PROMPT,
+            "consensus_json_format_instruction": AGENT_FORMAT,
             "logical_chain_length_instruction": CHAIN_PROMPT,
+            "logical_chain_json_format_instruction": CHAIN_FORMAT,
             "smartgen_task_extraction_instruction": SMARTGEN_PROMPT,
+            "smartgen_json_format_instruction": SMARTGEN_FORMAT,
             "agent_input_max_chars_per_model_response": 2200,
             "primary_judge_max_output_tokens": 2500,
             "fallback_judge_max_output_and_thinking_tokens": 9000,
@@ -1251,11 +1260,18 @@ def apply_settings(cfg):
     """Migrates any legacy cryptic keys into the self-explanatory schema, removes all dead/ambiguous keys,
     and binds the active server globals to data\\collider_config.json."""
     global CONSENSUS_AGENT, AGENT_CHAIN, DEPTH, SEARCH, MAX_TOKENS, DEADLINE, SILENCE
-    global AGENT_PROMPT, CHAIN_PROMPT, PACK_PRICE, TRACKS_PER_PACK, _BUILT_IN, SOURCE_CHARS
-    global TUNING, SMARTGEN_PROMPT, THEMES_URL, STORE_BYPASS
+    global AGENT_PROMPT, AGENT_FORMAT, CHAIN_PROMPT, CHAIN_FORMAT, PACK_PRICE, TRACKS_PER_PACK, _BUILT_IN, SOURCE_CHARS
+    global TUNING, SMARTGEN_PROMPT, SMARTGEN_FORMAT, THEMES_URL, STORE_BYPASS
 
     defaults = settings_defaults()
     changed = False
+
+    if "global_system_instruction" not in cfg:
+        cfg["global_system_instruction"] = ""
+        changed = True
+    if not isinstance(cfg.get("custom_option_lists"), dict):
+        cfg["custom_option_lists"] = {}
+        changed = True
 
     # 1. Host port migration
     if "host" in cfg:
@@ -1433,8 +1449,14 @@ def apply_settings(cfg):
     CONSENSUS_AGENT = str(csa["primary_judge_model_id"]).strip()
     AGENT_CHAIN = [m for m in dict.fromkeys([CONSENSUS_AGENT] + [str(x).strip() for x in csa["fallback_judge_model_ids"]]) if m]
     AGENT_PROMPT = str(csa["consensus_summary_and_ratio_instruction"])
+    if csa.get("consensus_json_format_instruction"):
+        AGENT_FORMAT = str(csa["consensus_json_format_instruction"])
     CHAIN_PROMPT = str(csa["logical_chain_length_instruction"])
+    if csa.get("logical_chain_json_format_instruction"):
+        CHAIN_FORMAT = str(csa["logical_chain_json_format_instruction"])
     SMARTGEN_PROMPT = str(csa["smartgen_task_extraction_instruction"])
+    if csa.get("smartgen_json_format_instruction"):
+        SMARTGEN_FORMAT = str(csa["smartgen_json_format_instruction"])
 
     ROSTER[:] = [_model_to_runtime(m) for m in desc_models]
     _BUILT_IN = len(ROSTER)

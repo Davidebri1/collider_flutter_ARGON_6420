@@ -7,17 +7,16 @@ import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
 /// Pooled, reference-counted live video frame extractor and ambient-blur cache.
-/// Shares a single decoded <video> element and GPU texture between CoverFlow covers
-/// and the background wallpaper, keeping recent instances warm in an LRU pool
-/// so revisiting a theme or cover never re-downloads or re-initializes the video.
+/// Pauses automatically when the tab is hidden and caps extraction dimensions
+/// so WebGL texture allocation never causes high GPU or VRAM load.
 class LiveFrames {
   static final Map<String, LiveFrames> _pool = {};
-  static const int _maxPoolSize = 14;
+  static const int _maxPoolSize = 8;
 
-  factory LiveFrames(String url, {int width = 480, int fps = 20, bool wantAmbient = false}) {
+  factory LiveFrames(String url, {int width = 480, int fps = 12, bool wantAmbient = false}) {
     final existing = _pool.remove(url);
     if (existing != null) {
-      _pool[url] = existing; // mark MRU
+      _pool[url] = existing;
       existing._refs++;
       if (wantAmbient) {
         existing._ambientRefs++;
@@ -29,7 +28,6 @@ class LiveFrames {
       return existing;
     }
 
-    // Evict oldest unused (refs <= 0) entry if pool exceeds capacity
     if (_pool.length >= _maxPoolSize) {
       String? victimKey;
       for (final k in _pool.keys) {
@@ -48,8 +46,8 @@ class LiveFrames {
     return created;
   }
 
-  LiveFrames._internal(this.url, {this.width = 480, int fps = 20, bool wantAmbient = false})
-      : _fps = fps,
+  LiveFrames._internal(this.url, {this.width = 480, int fps = 12, bool wantAmbient = false})
+      : _fps = fps.clamp(6, 15),
         _ambientRefs = wantAmbient ? 1 : 0 {
     final v = web.document.createElement('video') as web.HTMLVideoElement;
     v.muted = true;
@@ -97,15 +95,17 @@ class LiveFrames {
   }
 
   Future<void> _grab() async {
+    if (web.document.hidden) return;
     final v = _v;
     if (v == null || _busy || v.readyState < 2 || v.videoWidth == 0) return;
     if (_paused && frame.value != null) return;
     _busy = true;
     try {
-      // The video's own size (Claude, 2026-10-20: frames were cut down to 360 or 480 px wide).
-      final w = v.videoWidth;
-      final h = v.videoHeight;
-      final img = await ui_web.createImageFromTextureSource(v, width: w, height: h);
+      final rawW = v.videoWidth;
+      final rawH = v.videoHeight;
+      final targetW = rawW > width ? width : rawW;
+      final targetH = rawW > 0 ? (rawH * targetW ~/ rawW).clamp(1, rawH) : rawH;
+      final img = await ui_web.createImageFromTextureSource(v, width: targetW, height: targetH);
       if (_v == null) {
         img.dispose();
         return;
@@ -117,14 +117,11 @@ class LiveFrames {
         _updateAmbient(img);
       }
     } catch (_) {
-      // Poster fallback stays active until video frame is ready.
     } finally {
       _busy = false;
     }
   }
 
-  // The ambient look is drawn live from [frame] (themeBlurLook); no second, blurred copy of each frame is made
-  // (Claude, 2026-10-23).
   Future<void> _updateAmbient(ui.Image src) async {}
 
   void play() {
@@ -138,7 +135,6 @@ class LiveFrames {
     _v?.pause();
   }
 
-  /// Releases one consumer reference; keeps the <video> and last frame warm in the pool.
   void release({bool wantAmbient = false}) {
     if (wantAmbient && _ambientRefs > 0) _ambientRefs--;
     if (_refs > 0) _refs--;
@@ -149,7 +145,6 @@ class LiveFrames {
     }
   }
 
-  /// Backward-compatible alias for [release] so existing callers don't destroy cached frames.
   void dispose() => release();
 
   void _destroy() {

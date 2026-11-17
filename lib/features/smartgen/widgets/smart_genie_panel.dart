@@ -799,12 +799,8 @@ class _SmartGeniePanelState extends State<SmartGeniePanel> {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white54),
-              ),
+              child: Text('…',
+                  style: TextStyle(color: Colors.white54, fontSize: 12)),
             ),
           );
         }

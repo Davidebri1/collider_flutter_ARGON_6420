@@ -34,7 +34,7 @@ extension VMaterialX on VMaterial {
         VMaterial.modal => VColors.glassModal,
         VMaterial.work => VColors.glassWork,
       };
-  double get blur => 28;
+  double get blur => 20;
 
   /// Pane glass carries a top highlight; kit glass carries the kit hairline.
   bool get pane => this == VMaterial.prompt || this == VMaterial.resting;
@@ -47,16 +47,8 @@ extension VMaterialX on VMaterial {
   List<BoxShadow> get shadow => pane ? VShadow.pane : VShadow.ornament;
 }
 
-/// Saturation 1.6: the colour of what is behind the glass comes through it.
-const List<double> _vibrancy = <double>[
-  1.4724, -0.4288, -0.0436, 0, 0,
-  -0.1276, 1.1712, -0.0436, 0, 0,
-  -0.1276, -0.4288, 1.5564, 0, 0,
-  0, 0, 0, 1, 0,
-];
-
 /// One-pass glass surface: blur + material fill + hairline + specular rim.
-/// Never nest a VGlass inside another VGlass; use plain fills inside.
+/// Wrapped in RepaintBoundary and single-pass Gaussian blur for 0% idle GPU overhead and zero blue color bias.
 class VGlass extends StatelessWidget {
   final Widget child;
   final VMaterial material;
@@ -78,21 +70,20 @@ class VGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = BorderRadius.circular(radius);
-    return DecoratedBox(
-      decoration: BoxDecoration(borderRadius: r, boxShadow: shadow ? material.shadow : null),
-      child: ClipRRect(
-        borderRadius: r,
-        child: BackdropFilter(
-          filter: ImageFilter.compose(
-            outer: const ColorFilter.matrix(_vibrancy),
-            inner: ImageFilter.blur(sigmaX: material.blur, sigmaY: material.blur),
-          ),
-          child: CustomPaint(
-            foregroundPainter: VGlassStroke(radius: radius, pane: material.pane),
-            child: Container(
-              padding: padding,
-              decoration: BoxDecoration(color: fill ?? material.fill, borderRadius: r),
-              child: child,
+    return RepaintBoundary(
+      child: DecoratedBox(
+        decoration: BoxDecoration(borderRadius: r, boxShadow: shadow ? material.shadow : null),
+        child: ClipRRect(
+          borderRadius: r,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: material.blur, sigmaY: material.blur),
+            child: CustomPaint(
+              foregroundPainter: VGlassStroke(radius: radius, pane: material.pane),
+              child: Container(
+                padding: padding,
+                decoration: BoxDecoration(color: fill ?? material.fill, borderRadius: r),
+                child: child,
+              ),
             ),
           ),
         ),

@@ -286,14 +286,7 @@ class _SmartGenScreenState extends State<SmartGenScreen> {
 
   Widget _buildBoardArea() {
     if (!_ready) {
-      return const Center(
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child:
-              CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
-        ),
-      );
+      return const SizedBox.shrink();
     }
     final board = _store.activeBoard;
     if (board == null) {

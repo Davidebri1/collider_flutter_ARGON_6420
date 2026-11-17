@@ -345,7 +345,7 @@ class _ConsensusWebViewState extends State<ConsensusWebView> {
         else if (!_isLoading)
           Center(child: Text('3D Agreement Cluster Topology', style: VType.headline())),
         if (_isLoading)
-          const Center(child: CircularProgressIndicator(color: VColors.textSecondary, strokeWidth: 2)),
+          const SizedBox.shrink(),
       ],
     );
   }

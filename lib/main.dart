@@ -48,12 +48,12 @@ import 'package:device_preview/device_preview.dart';
 import 'package:device_preview/presets.dart';
 
 Future<void> main() async {
-  final wantDesktop = Uri.base.queryParameters['desktop'] == '1' || Uri.base.queryParameters['frame'] == '0';
+  final wantDeviceFrame = Uri.base.queryParameters['device'] == '1';
   DevicePreviewBindingMixin.latchConfiguration(
     initialSimulation: DevicePresets.iPhone16Pro.resolve(),
   );
   DevicePreview.enable(
-    enabled: !wantDesktop,
+    enabled: wantDeviceFrame,
     padding: const EdgeInsets.all(12),
   );
   WidgetsFlutterBinding.ensureInitialized();
@@ -145,6 +145,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
   AskMode _mode = AskMode.chat;
   bool _incognito = false;
   bool _autosave = true;
+  bool _liveVideoWallpaper = false;
   bool _busy = false;
   DateTime? _promptTime;
   final Map<String, JobState> _jobsById = {};
@@ -1237,10 +1238,12 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
         children: [
           // ================= PLANE 0: BACKGROUND WALLPAPER =================
           Positioned.fill(
-            child: ThemeLivingBackdrop(
-              theme: _currentTheme,
-              preferVideo: true,
-              builderAmbient: _activeDrawer == 'premium' && _locked(_currentTheme),
+            child: RepaintBoundary(
+              child: ThemeLivingBackdrop(
+                theme: _currentTheme,
+                preferVideo: _liveVideoWallpaper || _activeDrawer == 'themes' || _activeDrawer == 'premium',
+                builderAmbient: _activeDrawer == 'premium' && _locked(_currentTheme),
+              ),
             ),
           ),
 
@@ -1279,15 +1282,11 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
                   !const {
                     'premium',
                     'themes',
-                    'apps',
-                    'settings',
                     'smartgen',
                     'market',
                     'files',
                     'consensus',
-                    'upgrade',
                     'documents',
-                    'history',
                   }.contains(_activeDrawer);
               return Visibility(
                 visible: resting,
@@ -1317,12 +1316,14 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
                                         : isMobile
                                             ? (media ? 360.0 : 300.0)
                                             : (media ? 780.0 : 480.0),
-                                    // Sized to comfortably display Consensus + at least 3-4 2-line model responses at once
+                                    // Capped to <= 38% screen height per user specification (40% max height)
                                     maxHeight: (MediaQuery.of(context).size.height *
-                                            (sideBySide || (media && _mediaExpanded) ? 0.54 : 0.46))
-                                        .clamp(310.0, 450.0),
+                                            (media && _mediaExpanded ? 0.40 : 0.38))
+                                        .clamp(220.0, 340.0),
                                   ),
-                                  height: sideBySide ? MediaQuery.of(context).size.height * 0.52 : null,
+                                  height: sideBySide
+                                      ? (MediaQuery.of(context).size.height * 0.38).clamp(220.0, 340.0)
+                                      : null,
                                   margin: EdgeInsets.symmetric(horizontal: sideBySide ? 0 : (isMobile ? 12 : 24)),
                                   child: VGlass(
                                     radius: VRadius.card,
@@ -1517,11 +1518,18 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
           if (_activeDrawer == 'settings')
             Positioned.fill(
               child: SettingsDrawer(
-                onClose: () => setState(() => _activeDrawer = null),
+                onClose: () {
+                  setState(() => _activeDrawer = null);
+                  ColliderApi.instance.loadRoster().then((ok) {
+                    if (mounted && ok) setState(() {});
+                  });
+                },
                 incognito: _incognito,
                 autosave: _autosave,
+                liveVideo: _liveVideoWallpaper,
                 onIncognito: (v) => setState(() => _incognito = v),
                 onAutosave: (v) => setState(() => _autosave = v),
+                onLiveVideo: (v) => setState(() => _liveVideoWallpaper = v),
                 onOpenPurchased: () {
                   _filesPlace = 'purchased';
                   _requestSwitchSurface('files');

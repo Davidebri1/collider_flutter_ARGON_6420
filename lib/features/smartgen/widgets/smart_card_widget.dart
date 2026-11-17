@@ -108,11 +108,9 @@ class _SmartCardWidgetState extends State<SmartCardWidget>
     // The urgent pulse runs only while the card is urgent — a perpetually
     // repeating ticker on every card would keep pumpAndSettle (and the
     // GPU) busy forever.
-    if (card.urgent) {
-      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
-    } else {
-      _pulse.stop();
-    }
+    // Static highlight on urgent cards; 1s _ticker handles HH:MM:SS countdown (R7/R75).
+    _pulse.stop();
+    _pulse.value = card.urgent ? 1.0 : 0.0;
   }
 
   @override
@@ -2274,11 +2272,7 @@ class _VideoDialogState extends State<_VideoDialog> {
                   style: AppFonts.instrumentSans(
                       fontSize: 12.5, color: Colors.white70))
             else if (_ctrl == null)
-              const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white54))
+              const SizedBox.shrink()
             else
               AspectRatio(
                   aspectRatio: _ctrl!.value.aspectRatio,
