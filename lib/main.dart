@@ -369,8 +369,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     _promptTime = j.created;
     final items = <TickerItem>[];
     j.results.forEach((mid, r) {
-      final def = ModelRoster.byId(mid);
-      if (def == null) return;
+      final def = ModelRoster.ensureById(mid);
       final prev = _tickerItems.where((t) => t.modelDef.id == mid).toList();
       final waiting = r.status == 'pending' && r.text.isEmpty;
       final serverConv = _messagesFromResult(j, mid, r);
@@ -383,10 +382,12 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
             ]
           : serverConv;
       final fallbackLine = r.text.isNotEmpty ? _plain(r.text.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => r.text)) : '';
+      final lineClean = r.line.trim();
+      final lineEndsSentence = lineClean.isNotEmpty && RegExp(r'[.!?]["\x27)]*$').hasMatch(lineClean);
       final itemSummary = r.status == 'error'
           ? ''
-          : (r.line.isNotEmpty
-              ? r.line
+          : (lineClean.isNotEmpty && (lineEndsSentence || r.essence.isEmpty)
+              ? lineClean
               : (r.essence.isNotEmpty ? _plain(r.essence) : fallbackLine));
       items.add(TickerItem(
         modelDef: def,
@@ -415,7 +416,7 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     if (restored) {
       // Only mark models that actually answered as active/lit; unanswered models are dimmed below
       final answeredIds = j.results.entries
-          .where((e) => e.value.status == 'done' && e.value.text.isNotEmpty && ModelRoster.byId(e.key) != null)
+          .where((e) => e.value.status == 'done' && e.value.text.isNotEmpty)
           .map((e) => e.key)
           .toList();
       if (answeredIds.isNotEmpty) {
@@ -442,8 +443,8 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     if (j.done && _needsLines(j)) _ensureLines(j);
   }
 
-  /// 2-line summary budget (~115 chars on desktop, ~76 chars on mobile).
-  int get _lineChars => VOneLine.charsFor((MediaQuery.of(context).size.width < 768 ? 260.0 : 480.0) - 42, maxLines: 2);
+  /// Full sentiment sentence budget so short mobile columns never trigger mid-sentence clipping.
+  int get _lineChars => 140;
 
   final Set<String> _lineAsked = {};
   final Set<String> _lineFailed = {};
@@ -663,12 +664,6 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
       _expandedModelIds.clear();
       if (opening) _expandedModelIds.add(id);
     });
-    if (opening) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final c = _openKey.currentContext;
-        if (c != null) Scrollable.ensureVisible(c, duration: const Duration(milliseconds: 360), curve: Curves.easeOutCubic, alignment: 0.0);
-      });
-    }
   }
 
   final GlobalKey _openKey = GlobalKey();
@@ -901,8 +896,8 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
         _selectedModelIds.insert(0, targetId);
       }
 
-      final targetDef = ModelRoster.byId(targetId);
-      if (targetDef != null && !targetDef.categories.contains(_activeCategory) && targetDef.categories.isNotEmpty) {
+      final targetDef = ModelRoster.ensureById(targetId);
+      if (!targetDef.categories.contains(_activeCategory) && targetDef.categories.isNotEmpty) {
         _activeCategory = targetDef.categories.first;
       }
 
@@ -913,8 +908,20 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
           summary: session.summary,
           relativeTime: session.relativeTime,
         );
+      } else {
+        _tickerItems.insert(
+          0,
+          TickerItem(
+            modelDef: targetDef,
+            relativeTime: session.relativeTime,
+            summary: session.summary,
+            conversationTitle: session.title,
+            conversation: session.messages,
+          ),
+        );
       }
 
+      _userClosedSideBySide = false;
       _expandedModelIds.clear();
       _expandedModelIds.add(targetId);
     });
@@ -1121,11 +1128,26 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
     TickerItem rowFor(ModelDef d) =>
         _tickerItems.where((t) => t.modelDef.id == d.id).firstOrNull ?? TickerItem(modelDef: d, relativeTime: '', summary: '', conversation: const []);
     final roster = ModelRoster.forCategory(_activeCategory);
+    final activeMap = <String, TickerItem>{};
+    for (final t in _tickerItems) {
+      if ((_selectedModelIds.contains(t.modelDef.id) || _expandedModelIds.contains(t.modelDef.id) || t.conversation.isNotEmpty || t.summary.isNotEmpty) &&
+          t.modelDef.categories.contains(_activeCategory)) {
+        activeMap[t.modelDef.id] = t;
+      }
+    }
+    for (final id in _selectedModelIds) {
+      final d = roster.where((m) => m.id == id).firstOrNull;
+      if (d != null && !activeMap.containsKey(d.id)) {
+        activeMap[d.id] = rowFor(d);
+      }
+    }
     final activePills = [
-      for (final id in _selectedModelIds)
-        if (roster.where((m) => m.id == id).firstOrNull case final d?) rowFor(d),
+      for (final it in activeMap.values)
+        if (it.summary.isNotEmpty || it.conversation.isNotEmpty || it.isStreaming) it,
+      for (final it in activeMap.values)
+        if (it.summary.isEmpty && it.conversation.isEmpty && !it.isStreaming) it,
     ];
-    final idlePills = [for (final m in roster) if (!_selectedModelIds.contains(m.id)) rowFor(m)];
+    final idlePills = [for (final m in roster) if (!_selectedModelIds.contains(m.id) && !activeMap.containsKey(m.id)) rowFor(m)];
 
     final media = _activeCategory == ModelCategory.image;
     final isMobile = MediaQuery.of(context).size.width < 768;
@@ -1137,29 +1159,51 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
             : null);
     final openId = openItem?.modelDef.id;
     final sideBySide = openItem != null && !media;
-    final railVisible = _railVisible && !(isMobile && sideBySide);
+    final railVisible = _railVisible;
     final screenW = MediaQuery.sizeOf(context).width;
+    final screenH = MediaQuery.sizeOf(context).height;
+    final availW = screenW - (railVisible ? (isMobile ? 104.0 : 140.0) : 24.0);
+    final tickerW = sideBySide
+        ? availW.clamp(260.0, 620.0)
+        : (media
+            ? (isMobile ? availW.clamp(260.0, 360.0) : (screenW - (railVisible ? 140.0 : 48.0)).clamp(320.0, 780.0))
+            : availW.clamp(260.0, 420.0));
+    final leftColW = (tickerW * 0.46).clamp(130.0, 260.0);
+    final tickerH = (screenH * (media && _mediaExpanded ? 0.40 : 0.38)).clamp(230.0, 340.0);
 
-    final Widget conversation = openItem == null
-        ? const SizedBox.shrink()
-        : ConversationView(
-            key: ValueKey('conv-${openItem.modelDef.id}'),
-            item: openItem,
-            fill: true,
-            onClose: () => setState(() {
-              _userClosedSideBySide = true;
-              _expandedModelIds.clear();
-            }),
-            onSendReply: (reply, files) => _onSendInlineReply(openItem.modelDef.id, reply, files),
-            onOpenBrowser: () => _openBrowserForTab(_browserTabs.length > 1 ? _browserTabs[1].id : 'user_default'),
-            onTapMessage: (msg) => setState(() {
-              _zoomedMessage = msg;
-              _zoomedModelDef = openItem.modelDef;
-            }),
-            onOpenLocalHistory: () => setState(() => _localHistoryModel = openItem.modelDef),
-            onSend: () => _sendText(_conversationText(openItem)),
-            onOpen: () => _openTextAsDocument(openItem.modelDef.label, _conversationText(openItem), openItem.modelDef.label),
-          );
+    final Widget conversation = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      reverseDuration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, a) => FadeTransition(
+        opacity: a,
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0.03, 0), end: Offset.zero).animate(a),
+          child: child,
+        ),
+      ),
+      child: openItem == null
+          ? const SizedBox.shrink(key: ValueKey('conv-empty'))
+          : ConversationView(
+              key: ValueKey('conv-${openItem.modelDef.id}'),
+              item: openItem,
+              fill: true,
+              onClose: () => setState(() {
+                _userClosedSideBySide = true;
+                _expandedModelIds.clear();
+              }),
+              onSendReply: (reply, files) => _onSendInlineReply(openItem.modelDef.id, reply, files),
+              onOpenBrowser: () => _openBrowserForTab(_browserTabs.length > 1 ? _browserTabs[1].id : 'user_default'),
+              onTapMessage: (msg) => setState(() {
+                _zoomedMessage = msg;
+                _zoomedModelDef = openItem.modelDef;
+              }),
+              onOpenLocalHistory: () => setState(() => _localHistoryModel = openItem.modelDef),
+              onSend: () => _sendText(_conversationText(openItem)),
+              onOpen: () => _openTextAsDocument(openItem.modelDef.label, _conversationText(openItem), openItem.modelDef.label),
+            ),
+    );
 
     // The ticker's column: the consensus, a hairline, the selected models; under the arrow, the rest (David's diagram).
     final Widget rows = Column(
@@ -1306,67 +1350,72 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Padding(
-                              padding: EdgeInsets.only(left: isMobile && !media && !sideBySide ? 76 : 0),
-                              child: Center(
+                            Center(
+                              child: AnimatedSize(
+                                duration: const Duration(milliseconds: 240),
+                                curve: Curves.easeOutCubic,
+                                alignment: Alignment.bottomCenter,
                                 child: Container(
                                   constraints: BoxConstraints(
-                                    maxWidth: sideBySide
-                                        ? (isMobile ? screenW - 20 : (screenW - 220).clamp(480.0, 872.0))
-                                        : isMobile
-                                            ? (media ? 360.0 : 300.0)
-                                            : (media ? 780.0 : 480.0),
+                                    maxWidth: tickerW,
                                     // Capped to <= 38% screen height per user specification (40% max height)
-                                    maxHeight: (MediaQuery.of(context).size.height *
-                                            (media && _mediaExpanded ? 0.40 : 0.38))
-                                        .clamp(220.0, 340.0),
+                                    maxHeight: tickerH,
                                   ),
-                                  height: sideBySide
-                                      ? (MediaQuery.of(context).size.height * 0.38).clamp(220.0, 340.0)
-                                      : null,
+                                  width: sideBySide ? tickerW : null,
+                                  height: sideBySide ? tickerH : null,
                                   margin: EdgeInsets.symmetric(horizontal: sideBySide ? 0 : (isMobile ? 12 : 24)),
                                   child: VGlass(
                                     radius: VRadius.card,
                                     material: VMaterial.resting,
                                     padding: const EdgeInsets.all(VSpace.xs),
-                                    child: media
-                                        ? GenerationsPane(
-                                            aspect: _aspect,
-                                            count: _count,
-                                            onAspect: (a) => setState(() => _aspect = a),
-                                            onCount: (n) => setState(() => _count = n),
-                                            expanded: _mediaExpanded,
-                                            onToggleExpanded: () => setState(() => _mediaExpanded = !_mediaExpanded),
-                                            onRemix: (ref) => _toImageChat(reference: ref),
-                                            refresh: _mediaRefresh,
-                                          )
-                                        : sideBySide
-                                            ? Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                                                SizedBox(width: isMobile ? 136 : 300, child: Align(alignment: Alignment.topCenter, child: rows)),
-                                                Container(
-                                                  width: 1,
-                                                  margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 18),
-                                                  decoration: const BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      begin: Alignment.topCenter,
-                                                      end: Alignment.bottomCenter,
-                                                      colors: [Color(0x00FFFFFF), Color(0x24FFFFFF), Color(0x24FFFFFF), Color(0x00FFFFFF)],
-                                                      stops: [0, 0.15, 0.85, 1],
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 220),
+                                      reverseDuration: const Duration(milliseconds: 180),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      child: media
+                                          ? GenerationsPane(
+                                              key: const ValueKey('ticker-media'),
+                                              aspect: _aspect,
+                                              count: _count,
+                                              onAspect: (a) => setState(() => _aspect = a),
+                                              onCount: (n) => setState(() => _count = n),
+                                              expanded: _mediaExpanded,
+                                              onToggleExpanded: () => setState(() => _mediaExpanded = !_mediaExpanded),
+                                              onRemix: (ref) => _toImageChat(reference: ref),
+                                              refresh: _mediaRefresh,
+                                            )
+                                          : sideBySide
+                                              ? Row(
+                                                  key: const ValueKey('ticker-split'),
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    SizedBox(width: leftColW, child: Align(alignment: Alignment.topCenter, child: rows)),
+                                                    Container(
+                                                      width: 1,
+                                                      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 18),
+                                                      decoration: const BoxDecoration(
+                                                        gradient: LinearGradient(
+                                                          begin: Alignment.topCenter,
+                                                          end: Alignment.bottomCenter,
+                                                          colors: [Color(0x00FFFFFF), Color(0x24FFFFFF), Color(0x24FFFFFF), Color(0x00FFFFFF)],
+                                                          stops: [0, 0.15, 0.85, 1],
+                                                        ),
+                                                      ),
                                                     ),
-                                                  ),
-                                                ),
-                                                Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(4, 4, 4, 2), child: conversation)),
-                                              ])
-                                            : rows,
+                                                    Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(4, 4, 4, 2), child: conversation)),
+                                                  ],
+                                                )
+                                              : KeyedSubtree(key: const ValueKey('ticker-rows'), child: rows),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Padding(
-                              padding: EdgeInsets.only(left: isMobile && !media ? 76 : 0),
+                            Center(
                               child: ConstrainedBox(
-                                constraints: BoxConstraints(maxWidth: isMobile ? 300.0 : 480.0),
+                                constraints: BoxConstraints(maxWidth: availW.clamp(270.0, 340.0)),
                                 child: FloatingPrompt(
                                   summoned: _isComposerSummoned,
                                   busy: _busy,
@@ -1463,57 +1512,92 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
               ),
             ),
 
-          if (_activeDrawer == 'themes')
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 84,
-              child: WindowlessThemeScroller(
-                currentTheme: _currentTheme,
-                onLivePreview: (theme) {},
-                onConfirmTheme: (theme) => setState(() {
-                  _currentTheme = theme;
-                  _savedThemeBeforePreview = theme;
-                  _activeDrawer = null;
-                }),
-                onCancel: () => setState(() {
-                  _currentTheme = _savedThemeBeforePreview;
-                  _activeDrawer = null;
-                }),
-                onUpgradeTier: () => setState(() => _activeDrawer = 'premium'),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !const {'smartgen', 'market', 'files', 'documents'}.contains(_activeDrawer),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                child: const {'smartgen', 'market', 'files', 'documents'}.contains(_activeDrawer)
+                    ? const VScrim(key: ValueKey('drawer-scrim-on'))
+                    : const SizedBox.shrink(key: ValueKey('drawer-scrim-off')),
               ),
             ),
+          ),
 
-          if (_activeDrawer == 'premium')
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onVerticalDragEnd: (d) {
-                  if ((d.primaryVelocity ?? 0) > 300) {
-                    setState(() {
-                      if (_locked(_currentTheme)) _currentTheme = _savedThemeBeforePreview;
-                      _activeDrawer = 'themes';
-                    });
-                  }
-                },
-                child: PremiumThemeMarketView(
-                  currentTheme: _currentTheme,
-                  onApplyTheme: (theme) => setState(() {
-                    _currentTheme = theme;
-                    _savedThemeBeforePreview = theme;
-                    _activeDrawer = null;
-                  }),
-                  onPreviewTheme: (theme) => setState(() {
-                    _currentTheme = theme;
-                  }),
-                  onClose: () => setState(() {
-                    _currentTheme = _savedThemeBeforePreview;
-                    _activeDrawer = null;
-                  }),
-                ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 84,
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'themes',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _activeDrawer == 'themes'
+                    ? WindowlessThemeScroller(
+                        key: const ValueKey('drawer-themes'),
+                        currentTheme: _currentTheme,
+                        onLivePreview: (theme) {},
+                        onConfirmTheme: (theme) => setState(() {
+                          _currentTheme = theme;
+                          _savedThemeBeforePreview = theme;
+                          _activeDrawer = null;
+                        }),
+                        onCancel: () => setState(() {
+                          _currentTheme = _savedThemeBeforePreview;
+                          _activeDrawer = null;
+                        }),
+                        onUpgradeTier: () => setState(() => _activeDrawer = 'premium'),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-themes-off')),
               ),
             ),
+          ),
+
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'premium',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _activeDrawer == 'premium'
+                    ? GestureDetector(
+                        key: const ValueKey('drawer-premium'),
+                        behavior: HitTestBehavior.translucent,
+                        onVerticalDragEnd: (d) {
+                          if ((d.primaryVelocity ?? 0) > 300) {
+                            setState(() {
+                              if (_locked(_currentTheme)) _currentTheme = _savedThemeBeforePreview;
+                              _activeDrawer = 'themes';
+                            });
+                          }
+                        },
+                        child: PremiumThemeMarketView(
+                          currentTheme: _currentTheme,
+                          onApplyTheme: (theme) => setState(() {
+                            _currentTheme = theme;
+                            _savedThemeBeforePreview = theme;
+                            _activeDrawer = null;
+                          }),
+                          onPreviewTheme: (theme) => setState(() {
+                            _currentTheme = theme;
+                          }),
+                          onClose: () => setState(() {
+                            _currentTheme = _savedThemeBeforePreview;
+                            _activeDrawer = null;
+                          }),
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-premium-off')),
+              ),
+            ),
+          ),
 
           if (_activeDrawer == 'settings')
             Positioned.fill(
@@ -1538,85 +1622,153 @@ class _ColliderHomeScreenState extends State<ColliderHomeScreen> {
               ),
             ),
 
-          if (_activeDrawer == 'smartgen' || _activeDrawer == 'market' || _activeDrawer == 'files' || _activeDrawer == 'documents')
-            const Positioned.fill(child: VScrim()),
-
-          if (_activeDrawer == 'smartgen')
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 72,
-              child: SmartGenScreen(
-                onClose: () => _requestSwitchSurface(null),
-                isPro: true,
-                isElite: true,
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 72,
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'smartgen',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _activeDrawer == 'smartgen'
+                    ? SmartGenScreen(
+                        key: const ValueKey('drawer-smartgen'),
+                        onClose: () => _requestSwitchSurface(null),
+                        isPro: true,
+                        isElite: true,
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-smartgen-off')),
               ),
             ),
+          ),
 
-          if (_activeDrawer == 'market')
-            Positioned(
-              left: desktopSurfaceLeft,
-              right: 0,
-              top: 0,
-              bottom: 78,
-              child: MarketScreen(
-                onClose: () => _requestSwitchSurface(null),
-                view: _marketCategory,
-                onImagine: (t) => _toImageChat(text: t),
-                onRemix: (ref) => _toImageChat(reference: ref),
+          Positioned(
+            left: desktopSurfaceLeft,
+            right: 0,
+            top: 0,
+            bottom: 78,
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'market',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _activeDrawer == 'market'
+                    ? MarketScreen(
+                        key: const ValueKey('drawer-market'),
+                        onClose: () => _requestSwitchSurface(null),
+                        view: _marketCategory,
+                        onImagine: (t) => _toImageChat(text: t),
+                        onRemix: (ref) => _toImageChat(reference: ref),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-market-off')),
               ),
             ),
+          ),
 
-          if (_activeDrawer == 'upgrade')
-            Positioned.fill(
-              child: UpgradeScreen(
-                onClose: () => setState(() => _activeDrawer = null),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'upgrade',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                child: _activeDrawer == 'upgrade'
+                    ? UpgradeScreen(
+                        key: const ValueKey('drawer-upgrade'),
+                        onClose: () => setState(() => _activeDrawer = null),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-upgrade-off')),
               ),
             ),
+          ),
 
-          if (_activeDrawer == 'skills')
-            Positioned.fill(
-              child: SkillsScreen(
-                onClose: () => setState(() => _activeDrawer = null),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'skills',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                child: _activeDrawer == 'skills'
+                    ? SkillsScreen(
+                        key: const ValueKey('drawer-skills'),
+                        onClose: () => setState(() => _activeDrawer = null),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-skills-off')),
               ),
             ),
+          ),
 
-          if (_activeDrawer == 'files')
-            Positioned(
-              left: desktopSurfaceLeft,
-              right: 0,
-              top: 0,
-              bottom: 78,
-              child: FilesScreen(
-                key: ValueKey('files-$_filesPlace'),
-                initialPlace: _filesPlace,
-                onClose: () => _requestSwitchSurface(null),
-                onOpenDocument: (url, name) => _openDocument(url, name),
+          Positioned(
+            left: desktopSurfaceLeft,
+            right: 0,
+            top: 0,
+            bottom: 78,
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'files',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _activeDrawer == 'files'
+                    ? FilesScreen(
+                        key: ValueKey('files-$_filesPlace'),
+                        initialPlace: _filesPlace,
+                        onClose: () => _requestSwitchSurface(null),
+                        onOpenDocument: (url, name) => _openDocument(url, name),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-files-off')),
               ),
             ),
+          ),
 
-          if (_activeDrawer == 'documents')
-            Positioned(
-              left: desktopSurfaceLeft,
-              right: 0,
-              top: 0,
-              bottom: 78,
-              child: DocumentsScreen(
-                key: ValueKey('documents-$_docUrl'),
-                fileUrl: _docUrl,
-                fileName: _docName,
-                onClose: () => _requestSwitchSurface(null),
+          Positioned(
+            left: desktopSurfaceLeft,
+            right: 0,
+            top: 0,
+            bottom: 78,
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'documents',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _activeDrawer == 'documents'
+                    ? DocumentsScreen(
+                        key: ValueKey('documents-$_docUrl'),
+                        fileUrl: _docUrl,
+                        fileName: _docName,
+                        onClose: () => _requestSwitchSurface(null),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-documents-off')),
               ),
             ),
+          ),
 
-          if (_activeDrawer == 'consensus')
-            Positioned.fill(
-              child: ConsensusWebView(
-                job: _currentJobId == null ? null : _jobsById[_currentJobId],
-                onClose: () => setState(() => _activeDrawer = null),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: _activeDrawer != 'consensus',
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                reverseDuration: const Duration(milliseconds: 180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: _activeDrawer == 'consensus'
+                    ? ConsensusWebView(
+                        key: const ValueKey('drawer-consensus'),
+                        job: _currentJobId == null ? null : _jobsById[_currentJobId],
+                        onClose: () => setState(() => _activeDrawer = null),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('drawer-consensus-off')),
               ),
             ),
+          ),
 
           if (_browserOpen)
             Positioned.fill(

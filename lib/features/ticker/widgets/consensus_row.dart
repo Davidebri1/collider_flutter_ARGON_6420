@@ -31,20 +31,23 @@ class ConsensusRow extends StatelessWidget {
       onTap: onTap ?? onGenerateConsensus,
       child: Container(
         color: const Color(0x00000000),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         child: SizedBox(
-          height: 30,
           width: double.infinity,
           child: Text.rich(
             TextSpan(children: [
               TextSpan(
                 text: agree == null ? '–/–' : score,
-                style: VType.caption(color: ink, weight: FontWeight.w700).copyWith(fontSize: 11, height: 15 / 11),
+                style: VType.caption(color: ink, weight: FontWeight.w700).copyWith(fontSize: 10.5, height: 1.28),
               ),
-              if (summary.isNotEmpty) TextSpan(text: '   $summary', style: VOneLine.rowStyle.copyWith(color: VColors.textPrimary)),
+              if (summary.isNotEmpty)
+                TextSpan(
+                  text: '  $summary',
+                  style: VOneLine.rowStyle.copyWith(color: VColors.textPrimary, fontSize: 10.5, height: 1.28),
+                ),
             ]),
-            maxLines: 2,
-            overflow: TextOverflow.fade,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),

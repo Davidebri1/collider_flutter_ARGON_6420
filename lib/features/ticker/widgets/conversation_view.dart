@@ -169,7 +169,7 @@ class _ConversationViewState extends State<ConversationView> {
         // Header: Auto-Named Conversation Title + Model subtitle, and action buttons at the right.
         if (!widget.attached)
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 2, 0, 8),
+            padding: const EdgeInsets.fromLTRB(6, 2, 0, 5),
             child: Row(
               children: [
                 Expanded(
@@ -181,22 +181,22 @@ class _ConversationViewState extends State<ConversationView> {
                         item.displayTitle,
                         maxLines: 1,
                         softWrap: false,
-                        overflow: TextOverflow.fade,
-                        style: VType.headline().copyWith(fontSize: 13.5, height: 18 / 13.5),
+                        overflow: TextOverflow.ellipsis,
+                        style: VType.headline().copyWith(fontSize: 12.0, height: 15 / 12.0),
                       ),
                       Text(
                         item.modelDef.label,
                         maxLines: 1,
                         softWrap: false,
-                        overflow: TextOverflow.fade,
-                        style: VType.caption(color: VColors.textSecondary, weight: FontWeight.w500).copyWith(fontSize: 10.5),
+                        overflow: TextOverflow.ellipsis,
+                        style: VType.caption(color: VColors.textSecondary, weight: FontWeight.w500).copyWith(fontSize: 10.0),
                       ),
                     ],
                   ),
                 ),
-                Builder(builder: (c) => VCircleButton(icon: Icons.more_horiz_rounded, size: 30, tooltip: 'More', onTap: () => _menu(c))),
-                const SizedBox(width: 6),
-                VCircleButton(icon: Icons.close_rounded, size: 30, tooltip: 'Close', onTap: widget.onClose),
+                Builder(builder: (c) => VCircleButton(icon: Icons.more_horiz_rounded, size: 26, tooltip: 'More', onTap: () => _menu(c))),
+                const SizedBox(width: 4),
+                VCircleButton(icon: Icons.close_rounded, size: 26, tooltip: 'Close', onTap: widget.onClose),
               ],
             ),
           ),
@@ -236,10 +236,10 @@ class _ConversationViewState extends State<ConversationView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             isUser
-                                ? Text(m.text, style: VType.callout(weight: FontWeight.w400).copyWith(height: 1.4))
-                                : MdText(m.text),
-                            const SizedBox(height: 3),
-                            Text(time, style: VType.caption(color: VColors.textTertiary).copyWith(fontSize: 11, height: 12 / 10)),
+                                ? Text(m.text, style: VType.callout(weight: FontWeight.w400).copyWith(fontSize: 11.5, height: 1.38))
+                                : MdText(m.text, style: VType.callout(weight: FontWeight.w400).copyWith(fontSize: 11.5, height: 1.38)),
+                            const SizedBox(height: 2),
+                            Text(time, style: VType.caption(color: VColors.textTertiary).copyWith(fontSize: 9.5, height: 12 / 10)),
                           ],
                         ),
                       ),
@@ -263,27 +263,27 @@ class _ConversationViewState extends State<ConversationView> {
             ],
           ),
         ],
-        const SizedBox(height: VSpace.xs),
-        // 0:639 entry box: recessed, the words to type, send at the right.
+        const SizedBox(height: 4),
+        // 0:639 entry box: recessed, compact height, send at the right.
         VRecessed(
-          radius: 20,
-          padding: EdgeInsets.fromLTRB(widget.attached ? 4 : 14, 0, 4, 0),
+          radius: 17,
+          padding: EdgeInsets.fromLTRB(widget.attached ? 4 : 11, 0, 3, 0),
           child: SizedBox(
-            height: 40,
+            height: 34,
             child: Row(
               children: [
                 if (widget.attached) ...[
-                  Builder(builder: (c) => VCircleButton(icon: Icons.more_horiz_rounded, size: 32, tooltip: 'More', onTap: () => _menu(c))),
-                  const SizedBox(width: 6),
+                  Builder(builder: (c) => VCircleButton(icon: Icons.more_horiz_rounded, size: 26, tooltip: 'More', onTap: () => _menu(c))),
+                  const SizedBox(width: 4),
                 ],
                 Expanded(
                   child: TextField(
                     controller: _reply,
                     cursorColor: VColors.textPrimary,
-                    style: VType.callout(weight: FontWeight.w400),
+                    style: VType.callout(weight: FontWeight.w400).copyWith(fontSize: 11),
                     decoration: InputDecoration(
                       hintText: 'Enter message',
-                      hintStyle: VType.callout(color: VColors.textTertiary, weight: FontWeight.w400),
+                      hintStyle: VType.callout(color: VColors.textTertiary, weight: FontWeight.w400).copyWith(fontSize: 11),
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
@@ -291,7 +291,7 @@ class _ConversationViewState extends State<ConversationView> {
                     onSubmitted: (_) => _submit(),
                   ),
                 ),
-                VCircleButton(icon: Icons.arrow_upward_rounded, size: 32, selected: true, tooltip: 'Send', onTap: _submit),
+                VCircleButton(icon: Icons.arrow_upward_rounded, size: 28, selected: true, tooltip: 'Send', onTap: _submit),
               ],
             ),
           ),
@@ -349,9 +349,9 @@ class _Bubble extends StatelessWidget {
     const r = Radius.circular(14);
     const tail = Radius.circular(3);
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      constraints: const BoxConstraints(maxWidth: 270),
-      padding: const EdgeInsets.fromLTRB(13, 9, 13, 8),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      constraints: const BoxConstraints(maxWidth: 230),
+      padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
       decoration: BoxDecoration(
         color: isUser ? VColors.fillActive : const Color(0x4D808080),
         borderRadius: isUser

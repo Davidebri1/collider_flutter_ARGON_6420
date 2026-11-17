@@ -239,9 +239,15 @@ def next_row(name=None, search=None):
 
 # Built-in Ticker Response Models
 DEFAULT_TICKER_MODELS = [
+    {"id": "nvidia/nemotron-3.5-bolt-e4b", "label": "Nemotron 3.5 Bolt", "short": "NBLT", "provider": "NVIDIA", "via": "NVIDIA", "color": "#76B900"},
+    {"id": "nvidia/nemotron-3.5-super-vl-120b-a12b", "label": "Nemotron 3.5 Super", "short": "N35S", "provider": "NVIDIA", "via": "NVIDIA", "color": "#22C55E"},
+    {"id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "label": "Nemotron 3 Nano", "short": "N3N", "provider": "NVIDIA", "via": "NVIDIA", "color": "#34D399"},
+    {"id": "nvidia/nemotron-3-ultra-550b-a55b", "label": "Nemotron 3 Ultra", "short": "NU3", "provider": "NVIDIA", "via": "NVIDIA", "color": "#4ADE80"},
+    {"id": "mistralai/mistral-large-4-1t-a52b", "label": "Mistral Large 4", "short": "ML4", "provider": "Mistral", "via": "NVIDIA", "color": "#FB923C"},
+    {"id": "minimaxai/minimax-m3.1-flash", "label": "MiniMax M3.1 Flash", "short": "MM31", "provider": "MiniMax", "via": "NVIDIA", "color": "#F472B6"},
+    {"id": "nvidia/nemotron-3-nano-30b-a3b", "label": "Nemotron 3 Nano 30B", "short": "NN30", "provider": "NVIDIA", "via": "NVIDIA", "color": "#10B981"},
     {"id": "nvidia/nemotron-3-super-120b-a12b", "label": "Nemotron 3 Super", "short": "NS3", "provider": "NVIDIA", "via": "NVIDIA", "color": "#76B900"},
-    {"id": "nvidia/nemotron-3-ultra-550b-a55b", "label": "Nemotron 3 Ultra", "short": "NU3", "provider": "NVIDIA", "via": "NVIDIA", "color": "#A3E635"},
-    {"id": "nvidia/nemotron-3.5-lightning-30b-a3b", "label": "Nemotron 3.5 Lightning", "short": "NL35", "provider": "NVIDIA", "via": "NVIDIA", "color": "#4ADE80"},
+    {"id": "nvidia/nemotron-3.5-lightning-30b-a3b", "label": "Nemotron 3.5 Lightning", "short": "NL35", "provider": "NVIDIA", "via": "NVIDIA", "color": "#A3E635"},
     {"id": "z-ai/glm-5.3", "label": "GLM 5.3", "short": "GLM", "provider": "Z.ai", "via": "NVIDIA", "color": "#60A5FA"},
     {"id": "z-ai/glm-5.3-flash", "label": "GLM 5.3 Flash", "short": "GLMF", "provider": "Z.ai", "via": "NVIDIA", "color": "#93C5FD"},
     {"id": "google/gemma-4-31b-it", "label": "Gemma 4 31B", "short": "G4", "provider": "Google", "via": "NVIDIA", "color": "#FBBF24"},
@@ -259,6 +265,12 @@ _COLORS = ["#F59E0B", "#EC4899", "#14B8A6", "#8B5CF6", "#EF4444", "#22D3EE", "#8
 
 # Full catalog of selectable LLM models across providers for the Launch Configurator dropdowns
 MODEL_CATALOG = [
+    {"model_id": "nvidia/nemotron-3.5-bolt-e4b", "display_name": "Nemotron 3.5 Bolt", "ticker_badge": "NBLT", "model_creator": "NVIDIA", "api_provider_route": "NVIDIA", "badge_color_hex": "#76B900", "consequence": "Ultra-fast NVIDIA Nemotron 3.5 Bolt responder & consensus agent"},
+    {"model_id": "nvidia/nemotron-3.5-super-vl-120b-a12b", "display_name": "Nemotron 3.5 Super", "ticker_badge": "N35S", "model_creator": "NVIDIA", "api_provider_route": "NVIDIA", "badge_color_hex": "#22C55E", "consequence": "Nemotron 3.5 Super VL 120B multimodal & general reasoning"},
+    {"model_id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "display_name": "Nemotron 3 Nano", "ticker_badge": "N3N", "model_creator": "NVIDIA", "api_provider_route": "NVIDIA", "badge_color_hex": "#34D399", "consequence": "Nemotron 3 Nano 30B omni reasoning responder"},
+    {"model_id": "nvidia/nemotron-3-nano-30b-a3b", "display_name": "Nemotron 3 Nano 30B", "ticker_badge": "NN30", "model_creator": "NVIDIA", "api_provider_route": "NVIDIA", "badge_color_hex": "#10B981", "consequence": "Nemotron 3 Nano 30B A3B fast reasoning model"},
+    {"model_id": "mistralai/mistral-large-4-1t-a52b", "display_name": "Mistral Large 4", "ticker_badge": "ML4", "model_creator": "Mistral", "api_provider_route": "NVIDIA", "badge_color_hex": "#FB923C", "consequence": "Mistral Large 4 MoE flagship reasoning via NVIDIA"},
+    {"model_id": "minimaxai/minimax-m3.1-flash", "display_name": "MiniMax M3.1 Flash", "ticker_badge": "MM31", "model_creator": "MiniMax", "api_provider_route": "NVIDIA", "badge_color_hex": "#F472B6", "consequence": "MiniMax M3.1 Flash fast long-context synthesis via NVIDIA"},
     {"model_id": "google/gemma-4-31b-it", "display_name": "Gemma 4 31B", "ticker_badge": "G4", "model_creator": "Google", "api_provider_route": "NVIDIA", "badge_color_hex": "#FBBF24", "consequence": "Fast, balanced general reasoning & structured JSON (Recommended Primary Judge)"},
     {"model_id": "nvidia/nemotron-3-super-120b-a12b", "display_name": "Nemotron 3 Super", "ticker_badge": "NS3", "model_creator": "NVIDIA", "api_provider_route": "NVIDIA", "badge_color_hex": "#76B900", "consequence": "High-depth analytical reasoning (120B MoE, 12B active) — strong backup judge"},
     {"model_id": "nvidia/nemotron-3-ultra-550b-a55b", "display_name": "Nemotron 3 Ultra", "ticker_badge": "NU3", "model_creator": "NVIDIA", "api_provider_route": "NVIDIA", "badge_color_hex": "#A3E635", "consequence": "Maximum-scale flagship reasoning (550B MoE, 55B active) — deepest synthesis"},

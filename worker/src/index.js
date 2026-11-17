@@ -7,6 +7,7 @@ const DEFAULT_ROSTER = [
   { id: "nvidia/nemotron-3.5-bolt-e4b", label: "Nemotron 3.5 Bolt", short: "NBLT", provider: "NVIDIA", via: "NVIDIA", color: "#76B900", system: "", temperature: "" },
   { id: "nvidia/nemotron-3.5-super-vl-120b-a12b", label: "Nemotron 3.5 Super", short: "N35S", provider: "NVIDIA", via: "NVIDIA", color: "#22C55E", system: "", temperature: "" },
   { id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", label: "Nemotron 3 Nano", short: "N3N", provider: "NVIDIA", via: "NVIDIA", color: "#34D399", system: "", temperature: "" },
+  { id: "nvidia/nemotron-3-nano-30b-a3b", label: "Nemotron 3 Nano 30B", short: "NN30", provider: "NVIDIA", via: "NVIDIA", color: "#10B981", system: "", temperature: "" },
   { id: "nvidia/nemotron-3-ultra-550b-a55b", label: "Nemotron 3 Ultra", short: "N3U", provider: "NVIDIA", via: "NVIDIA", color: "#4ADE80", system: "", temperature: "" },
   { id: "mistralai/mistral-large-4-1t-a52b", label: "Mistral Large 4", short: "ML4", provider: "Mistral", via: "NVIDIA", color: "#FB923C", system: "", temperature: "" },
   { id: "minimaxai/minimax-m3.1-flash", label: "MiniMax M3.1 Flash", short: "MM31", provider: "MiniMax", via: "NVIDIA", color: "#F472B6", system: "", temperature: "" },

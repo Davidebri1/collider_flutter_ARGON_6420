@@ -237,4 +237,62 @@ class ModelRoster {
       return null;
     }
   }
+
+  /// Finds [id] in [allModels] or registers a fallback [ModelDef] dynamically
+  /// so seeded, historical, or legacy job results are never dropped.
+  static ModelDef ensureById(String id, {String? label}) {
+    final existing = byId(id);
+    if (existing != null) return existing;
+    const knownLabels = <String, String>{
+      'nvidia/nemotron-3.5-bolt-e4b': 'Nemotron 3.5 Bolt',
+      'nvidia/nemotron-3.5-super-vl-120b-a12b': 'Nemotron 3.5 Super',
+      'nvidia/nemotron-3-super-120b-a12b': 'Nemotron 3 Super',
+      'nvidia/nemotron-3-nano-30b-a3b': 'Nemotron 3 Nano',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': 'Nemotron 3 Nano',
+      'nvidia/nemotron-3-ultra-550b-a55b': 'Nemotron 3 Ultra',
+      'nvidia/nemotron-3.5-lightning-30b-a3b': 'Nemotron 3.5 Lightning',
+      'mistralai/mistral-large-4-1t-a52b': 'Mistral Large 4',
+      'minimaxai/minimax-m3.1-flash': 'MiniMax M3.1 Flash',
+    };
+    String resolvedLabel = (label ?? '').trim();
+    if (resolvedLabel.isEmpty) {
+      resolvedLabel = knownLabels[id] ??
+          id
+              .split('/')
+              .last
+              .split(RegExp(r'[-_]+'))
+              .where((p) => p.isNotEmpty)
+              .take(3)
+              .map((p) => p[0].toUpperCase() + p.substring(1))
+              .join(' ');
+    }
+    if (resolvedLabel.isEmpty) resolvedLabel = id;
+    final cleanShort = resolvedLabel.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    final short = cleanShort.isEmpty
+        ? 'MDL'
+        : cleanShort.substring(0, cleanShort.length < 4 ? cleanShort.length : 4).toUpperCase();
+    final low = id.toLowerCase();
+    final color = low.contains('nvidia') || low.contains('nemotron')
+        ? const Color(0xFF76B900)
+        : low.contains('mistral')
+            ? const Color(0xFFFB923C)
+            : low.contains('minimax')
+                ? const Color(0xFFF472B6)
+                : low.contains('gemma') || low.contains('google')
+                    ? const Color(0xFFFBBF24)
+                    : low.contains('llama') || low.contains('meta')
+                        ? const Color(0xFF818CF8)
+                        : const Color(0xFF94A3B8);
+    final def = ModelDef(
+      id: id,
+      label: resolvedLabel,
+      short: short,
+      desc: 'Active model in session history.',
+      tier: ModelTier.free,
+      categories: const [ModelCategory.general],
+      providerColor: color,
+    );
+    allModels = [...allModels, def];
+    return def;
+  }
 }

@@ -103,11 +103,31 @@ class SettingsDrawer extends StatefulWidget {
   State<SettingsDrawer> createState() => _SettingsDrawerState();
 }
 
-class _SettingsDrawerState extends State<SettingsDrawer> {
+class _SettingsDrawerState extends State<SettingsDrawer> with SingleTickerProviderStateMixin {
   int _tab = Uri.base.queryParameters['sub'] == 'account' ? 1 : 0;
   String _phone = '', _qr = '';
   bool _emailPrompt = false;
   final TextEditingController _emailCtrl = TextEditingController(text: 'david@collider.ai');
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+    reverseDuration: const Duration(milliseconds: 190),
+  )..forward();
+  late final Animation<double> _curve = CurvedAnimation(
+    parent: _ctrl,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  bool _closing = false;
+
+  Future<void> _handleClose() async {
+    if (_closing) return;
+    _closing = true;
+    try {
+      await _ctrl.reverse();
+    } catch (_) {}
+    if (mounted) widget.onClose();
+  }
 
   @override
   void initState() {
@@ -127,6 +147,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
   @override
   void dispose() {
+    _ctrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
   }
@@ -208,7 +229,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ),
           ],
           const Spacer(),
-          VCircleButton(icon: Icons.close_rounded, size: 24, tooltip: 'Close', onTap: widget.onClose),
+          VCircleButton(icon: Icons.close_rounded, size: 24, tooltip: 'Close', onTap: _handleClose),
         ]),
       );
 
@@ -336,7 +357,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     final w = widget;
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
-        const SingleActivator(LogicalKeyboardKey.escape): w.onClose,
+        const SingleActivator(LogicalKeyboardKey.escape): _handleClose,
       },
       child: Focus(
         autofocus: true,
@@ -345,7 +366,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           children: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: w.onClose,
+              onTap: _handleClose,
               child: const SizedBox.expand(),
             ),
             Align(
@@ -354,58 +375,72 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 78, left: 20, right: 20),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 250, maxWidth: 292, maxHeight: 310),
-                    child: GestureDetector(
-                      onTap: () {},
-                      child: VGlass(
-                        material: VMaterial.modal,
-                        radius: VRadius.card,
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                        child: AnimatedSize(
-                          duration: VMotion.fast,
-                          curve: Curves.easeOutCubic,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _tabs(),
-                              Flexible(
-                                child: EdgeFade(
-                                  fadeHeight: 14,
-                                  child: SingleChildScrollView(
-                                    physics: const BouncingScrollPhysics(),
-                                    child: _tab == 0
-                                        ? Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              _row(
-                                                'Incognito Session',
-                                                VToggle(value: w.incognito, onChanged: w.onIncognito),
-                                                sub: 'Zero history or disk trace',
-                                              ),
-                                              _row(
-                                                'Save to History',
-                                                VToggle(value: w.autosave, onChanged: w.incognito ? null : w.onAutosave),
-                                                sub: 'Persist threads & Smart Gen',
-                                              ),
-                                              if (w.onLiveVideo != null)
+                  child: AnimatedBuilder(
+                    animation: _curve,
+                    builder: (_, child) => Opacity(
+                      opacity: _curve.value.clamp(0.0, 1.0),
+                      child: Transform.translate(
+                        offset: Offset(0, 14 * (1 - _curve.value)),
+                        child: Transform.scale(
+                          scale: 0.96 + 0.04 * _curve.value,
+                          alignment: Alignment.bottomCenter,
+                          child: child,
+                        ),
+                      ),
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 250, maxWidth: 292, maxHeight: 310),
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: VGlass(
+                          material: VMaterial.modal,
+                          radius: VRadius.card,
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                          child: AnimatedSize(
+                            duration: VMotion.fast,
+                            curve: Curves.easeOutCubic,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _tabs(),
+                                Flexible(
+                                  child: EdgeFade(
+                                    fadeHeight: 14,
+                                    child: SingleChildScrollView(
+                                      physics: const BouncingScrollPhysics(),
+                                      child: _tab == 0
+                                          ? Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
                                                 _row(
-                                                  'Live Video Wallpaper',
-                                                  VToggle(value: w.liveVideo, onChanged: w.onLiveVideo),
-                                                  sub: 'Off saves GPU on resting Home',
+                                                  'Incognito Session',
+                                                  VToggle(value: w.incognito, onChanged: w.onIncognito),
+                                                  sub: 'Zero history or disk trace',
                                                 ),
-                                              _link('Launch Configurator', () => openUrl('/config'), badge: '6420'),
-                                              _link('Purchased Themes', w.onOpenPurchased),
-                                              _link('Upgrade Plan', w.onOpenUpgrade),
-                                            ],
-                                          )
-                                        : _buildAccountTab(w),
+                                                _row(
+                                                  'Save to History',
+                                                  VToggle(value: w.autosave, onChanged: w.incognito ? null : w.onAutosave),
+                                                  sub: 'Persist threads & Smart Gen',
+                                                ),
+                                                if (w.onLiveVideo != null)
+                                                  _row(
+                                                    'Live Video Wallpaper',
+                                                    VToggle(value: w.liveVideo, onChanged: w.onLiveVideo),
+                                                    sub: 'Off saves GPU on resting Home',
+                                                  ),
+                                                _link('Launch Configurator', () => openUrl('/config'), badge: '6420'),
+                                                _link('Purchased Themes', w.onOpenPurchased),
+                                                _link('Upgrade Plan', w.onOpenUpgrade),
+                                              ],
+                                            )
+                                          : _buildAccountTab(w),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

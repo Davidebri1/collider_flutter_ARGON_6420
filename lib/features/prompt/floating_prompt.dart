@@ -119,7 +119,9 @@ class _FloatingPromptState extends State<FloatingPrompt> {
         alignment: Alignment.bottomCenter,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 240),
+          reverseDuration: const Duration(milliseconds: 200),
           switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
           transitionBuilder: (child, a) => FadeTransition(
             opacity: a,
             child: SlideTransition(position: Tween(begin: const Offset(0, 0.06), end: Offset.zero).animate(a), child: child),
@@ -175,8 +177,8 @@ class _FloatingPromptState extends State<FloatingPrompt> {
     return VGlass(
       key: const ValueKey('open'),
       material: VMaterial.resting,
-      radius: 26,
-      padding: const EdgeInsets.fromLTRB(VSpace.xs, 4, VSpace.xs, 8),
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(8, 3, 8, 7),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -185,8 +187,8 @@ class _FloatingPromptState extends State<FloatingPrompt> {
             child: VPress(
               onTap: widget.onTuck,
               child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 18, vertical: 2),
-                child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: VColors.textSecondary),
+                padding: EdgeInsets.symmetric(horizontal: 18, vertical: 1),
+                child: Icon(Icons.keyboard_arrow_down_rounded, size: 17, color: VColors.textSecondary),
               ),
             ),
           ),
@@ -198,8 +200,8 @@ class _FloatingPromptState extends State<FloatingPrompt> {
           ),
           if (!_options && chosen.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Wrap(spacing: 6, runSpacing: 6, children: chosen),
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Wrap(spacing: 5, runSpacing: 5, children: chosen),
             ),
           const SizedBox(height: 2),
           Row(
@@ -207,34 +209,34 @@ class _FloatingPromptState extends State<FloatingPrompt> {
             children: [
               VCircleButton(
                 icon: _options ? Icons.close_rounded : Icons.add_rounded,
-                size: 34,
+                size: 30,
                 selected: true,
                 tooltip: 'Options',
                 onTap: () => setState(() => _options = !_options),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: VRecessed(
-                  radius: 17,
-                  padding: const EdgeInsets.fromLTRB(14, 0, 5, 0),
+                  radius: 16,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 4, 0),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.5),
+                          padding: const EdgeInsets.symmetric(vertical: 6.5),
                           child: TextField(
                             controller: _ctrl,
                             focusNode: _focus,
                             minLines: 1,
-                            maxLines: 5,
+                            maxLines: 4,
                             cursorColor: VColors.textPrimary,
                             textInputAction: TextInputAction.send,
-                            style: VType.callout(weight: FontWeight.w500).copyWith(fontSize: 11, height: 17 / 13),
+                            style: VType.callout(weight: FontWeight.w500).copyWith(fontSize: 11, height: 15 / 11),
                             decoration: InputDecoration(
                               hintText: 'Enter message',
                               hintStyle: VType.callout(color: const Color(0x99FFFFFF), weight: FontWeight.w400)
-                                  .copyWith(fontSize: 11, height: 17 / 13),
+                                  .copyWith(fontSize: 11, height: 15 / 11),
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
@@ -245,7 +247,7 @@ class _FloatingPromptState extends State<FloatingPrompt> {
                       ),
                       const SizedBox(width: 6),
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 3),
                         child: widget.voice != null && widget.onMic != null
                             ? _MicButton(
                                 phase: widget.voice!,

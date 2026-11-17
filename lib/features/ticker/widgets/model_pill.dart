@@ -52,36 +52,43 @@ class _ModelPillState extends State<ModelPill> {
       child: AnimatedContainer(
         duration: VMotion.base,
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(
-          color: widget.isExpanded ? const Color(0x24FFFFFF) : const Color(0x00FFFFFF),
+          color: widget.isExpanded ? const Color(0x28FFFFFF) : const Color(0x00FFFFFF),
           borderRadius: BorderRadius.circular(ModelPill.radius),
+          border: Border.all(
+            color: widget.isExpanded ? const Color(0x3DFFFFFF) : const Color(0x00FFFFFF),
+            width: 0.75,
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(children: [
-              Expanded(child: Text(item.modelDef.label, maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: name)),
-              if (active && !waiting && !widget.compact && item.relativeTime.isNotEmpty) Text(item.relativeTime, style: time),
+              Expanded(child: Text(item.modelDef.label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: name)),
+              if (active && !waiting && item.relativeTime.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(item.relativeTime, style: time),
+              ],
             ]),
             if (hasSummary) ...[
               const SizedBox(height: 2),
-              // Two lines kept for the summary; the open row shows it whole.
-              AnimatedSize(
-                duration: VMotion.base,
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: SizedBox(
-                  height: widget.isExpanded && item.summary.isNotEmpty ? null : 30,
-                  width: double.infinity,
-                  child: waiting && item.summary.isEmpty
-                      ? const _SkeletonLines()
-                      : Text(item.summary,
-                          maxLines: widget.isExpanded ? null : 2,
-                          overflow: widget.isExpanded ? null : TextOverflow.fade,
-                          style: VOneLine.rowStyle.copyWith(color: VColors.textSecondary)),
-                ),
+              // Compact up to 3-line scannable summary; full message opens cleanly in the side-by-side pane.
+              SizedBox(
+                width: double.infinity,
+                child: waiting && item.summary.isEmpty
+                    ? const _SkeletonLines()
+                    : Text(
+                        item.summary,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: VOneLine.rowStyle.copyWith(
+                          color: widget.isExpanded ? VColors.textPrimary : VColors.textSecondary,
+                          fontSize: 10.2,
+                          height: 1.26,
+                        ),
+                      ),
               ),
             ],
             if (active && item.mediaUrls != null && item.mediaUrls!.isNotEmpty) ...[

@@ -57,14 +57,28 @@ class DetailView extends StatefulWidget {
 }
 
 class _DetailViewState extends State<DetailView> with SingleTickerProviderStateMixin {
-  // summoned: the room goes out of focus as the content rises toward the viewer
-  late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 360))..forward();
+  // summoned: the room goes out of focus as the content rises toward the viewer; symmetric reverse on close.
+  late final AnimationController _in = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 340),
+    reverseDuration: const Duration(milliseconds: 260),
+  )..forward();
   bool _sent = false;
+  bool _closing = false;
 
   @override
   void dispose() {
     _in.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleClose() async {
+    if (_closing) return;
+    _closing = true;
+    try {
+      await _in.reverse();
+    } catch (_) {}
+    if (mounted) widget.onClose();
   }
 
   void _handleSend() {
@@ -79,7 +93,7 @@ class _DetailViewState extends State<DetailView> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final t = CurvedAnimation(parent: _in, curve: Curves.easeOutCubic);
+    final t = CurvedAnimation(parent: _in, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
     final all = [
       ...widget.actions,
       if (widget.onSend != null)
@@ -90,7 +104,7 @@ class _DetailViewState extends State<DetailView> with SingleTickerProviderStateM
           tint: _sent ? VColors.accentCyan : null,
         ),
       if (widget.onOpen != null) DetailAction(Icons.open_in_new_rounded, 'Open', widget.onOpen),
-      DetailAction(Icons.close_rounded, 'Close', widget.onClose),
+      DetailAction(Icons.close_rounded, 'Close', _handleClose),
     ];
     return AnimatedBuilder(
       animation: t,
@@ -103,7 +117,7 @@ class _DetailViewState extends State<DetailView> with SingleTickerProviderStateM
           // settles in the middle.
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: widget.onClose,
+            onTap: _handleClose,
             child: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 24 * v, sigmaY: 24 * v),

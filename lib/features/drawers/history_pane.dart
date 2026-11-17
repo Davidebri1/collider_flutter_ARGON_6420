@@ -33,12 +33,40 @@ class HistoryPane extends StatefulWidget {
   State<HistoryPane> createState() => _HistoryPaneState();
 }
 
-class _HistoryPaneState extends State<HistoryPane> {
+class _HistoryPaneState extends State<HistoryPane> with SingleTickerProviderStateMixin {
   final TextEditingController _search = Drafts.text('history.pane.search');
   String _q = '';
   String? _modelFilter; // null = All Models, or specific modelId (PRD R15)
   ConversationHistorySession? _open;
   bool _previewInitDone = false;
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+    reverseDuration: const Duration(milliseconds: 190),
+  )..forward();
+  late final Animation<double> _curve = CurvedAnimation(
+    parent: _ctrl,
+    curve: Curves.easeOutCubic,
+    reverseCurve: Curves.easeInCubic,
+  );
+  bool _closing = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleClose([VoidCallback? then]) async {
+    if (_closing) return;
+    _closing = true;
+    try {
+      await _ctrl.reverse();
+    } catch (_) {}
+    if (!mounted) return;
+    widget.onClose();
+    then?.call();
+  }
 
   static const _filterModels = <String>[
     'pro/claude-3-7-sonnet',
@@ -118,7 +146,7 @@ class _HistoryPaneState extends State<HistoryPane> {
                     style: VType.headline().copyWith(fontSize: 13),
                   ),
                 ),
-                VCircleButton(icon: Icons.close_rounded, size: 24, tooltip: 'Close', onTap: widget.onClose),
+                VCircleButton(icon: Icons.close_rounded, size: 24, tooltip: 'Close', onTap: () => _handleClose()),
               ],
             ),
           ),
@@ -199,18 +227,18 @@ class _HistoryPaneState extends State<HistoryPane> {
                         session: open,
                         job: widget.job(open.id),
                         preferredModelId: _modelFilter,
-                        onLoad: (targetModelId) => widget.onLoad(
-                          ConversationHistorySession(
-                            id: open.id,
-                            title: autoNameConversationTitle(open.title, open.summary),
-                            targetModelId: targetModelId,
-                            relativeTime: open.relativeTime,
-                            timestamp: open.timestamp,
-                            summary: open.summary,
-                            modelIds: open.modelIds,
-                            messages: open.messages,
-                          ),
-                        ),
+                        onLoad: (targetModelId) => _handleClose(() => widget.onLoad(
+                              ConversationHistorySession(
+                                id: open.id,
+                                title: autoNameConversationTitle(open.title, open.summary),
+                                targetModelId: targetModelId,
+                                relativeTime: open.relativeTime,
+                                timestamp: open.timestamp,
+                                summary: open.summary,
+                                modelIds: open.modelIds,
+                                messages: open.messages,
+                              ),
+                            )),
                         onUpdated: widget.onUpdated,
                       ),
                     ),
@@ -223,13 +251,20 @@ class _HistoryPaneState extends State<HistoryPane> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // PRD R37: History dims without blur as an exploration pause
-        VScrim(onTap: widget.onClose, blur: false),
+        // PRD R37: History dims without blur as an exploration pause; two-sided fade on entry/exit
+        FadeTransition(opacity: _curve, child: VScrim(onTap: () => _handleClose(), blur: false)),
         Align(
           alignment: Alignment.center,
-          child: GestureDetector(
-            onTap: () {},
-            child: VGlass(material: VMaterial.modal, radius: VRadius.lg + 4, child: pane),
+          child: AnimatedBuilder(
+            animation: _curve,
+            builder: (_, child) => Opacity(
+              opacity: _curve.value.clamp(0.0, 1.0),
+              child: Transform.scale(scale: 0.95 + 0.05 * _curve.value, child: child),
+            ),
+            child: GestureDetector(
+              onTap: () {},
+              child: VGlass(material: VMaterial.modal, radius: VRadius.lg + 4, child: pane),
+            ),
           ),
         ),
       ],

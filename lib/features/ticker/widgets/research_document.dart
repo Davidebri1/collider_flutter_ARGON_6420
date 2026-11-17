@@ -10,7 +10,7 @@ import '../../../models/ticker_item.dart';
 /// artifact: the report in a window that rises into place, each citation a small mark that opens its source, the
 /// sources listed under the report by the numbers the report cites, and Copy, Save and Share under the window.
 /// Research and Deep Research reports are also kept in Files > Generated when they finish.
-class ResearchDocument extends StatelessWidget {
+class ResearchDocument extends StatefulWidget {
   final TickerMessage message;
   final String modelName;
   final List<Map<String, dynamic>> sources;
@@ -25,6 +25,38 @@ class ResearchDocument extends StatelessWidget {
     required this.onOpenSource,
     required this.onClose,
   });
+
+  @override
+  State<ResearchDocument> createState() => _ResearchDocumentState();
+}
+
+class _ResearchDocumentState extends State<ResearchDocument> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 340),
+    reverseDuration: const Duration(milliseconds: 240),
+  )..forward();
+  late final Animation<double> _curve = CurvedAnimation(
+    parent: _ctrl,
+    curve: const Cubic(0.2, 0.9, 0.25, 1),
+    reverseCurve: Curves.easeInCubic,
+  );
+  bool _closing = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleClose() async {
+    if (_closing) return;
+    _closing = true;
+    try {
+      await _ctrl.reverse();
+    } catch (_) {}
+    if (mounted) widget.onClose();
+  }
 
   static String _host(String url) => Uri.tryParse(url)?.host.replaceFirst('www.', '') ?? url;
 
@@ -41,8 +73,8 @@ class ResearchDocument extends StatelessWidget {
   }
 
   String get _document {
-    final listed = [for (var i = 0; i < sources.length; i++) '${i + 1}. ${sources[i]['title'] ?? ''} ${sources[i]['url'] ?? ''}'];
-    return listed.isEmpty ? message.text : '${message.text.trim()}\n\nSources\n${listed.join('\n')}';
+    final listed = [for (var i = 0; i < widget.sources.length; i++) '${i + 1}. ${widget.sources[i]['title'] ?? ''} ${widget.sources[i]['url'] ?? ''}'];
+    return listed.isEmpty ? widget.message.text : '${widget.message.text.trim()}\n\nSources\n${listed.join('\n')}';
   }
 
   @override
@@ -53,115 +85,119 @@ class ResearchDocument extends StatelessWidget {
     final body = VType.body().copyWith(fontSize: 11, height: 1.55);
     final meta = VType.caption(color: VColors.textSecondary);
     void cite(int n) {
-      if (n >= 1 && n <= sources.length) onOpenSource(n - 1);
+      if (n >= 1 && n <= widget.sources.length) widget.onOpenSource(n - 1);
     }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        VScrim(onTap: onClose),
-        SafeArea(
-          child: Center(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 460),
-              curve: const Cubic(0.2, 0.9, 0.25, 1),
-              builder: (_, t, child) => Opacity(
-                opacity: t,
-                child: Transform.translate(offset: Offset(0, 24 * (1 - t)), child: Transform.scale(scale: 0.96 + 0.04 * t, child: child)),
+    return AnimatedBuilder(
+      animation: _curve,
+      builder: (_, child) {
+        final t = _curve.value;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Opacity(opacity: t.clamp(0.0, 1.0), child: VScrim(onTap: _handleClose)),
+            SafeArea(
+              child: Center(
+                child: Opacity(
+                  opacity: t.clamp(0.0, 1.0),
+                  child: Transform.translate(
+                    offset: Offset(0, 24 * (1 - t)),
+                    child: Transform.scale(scale: 0.96 + 0.04 * t, child: child),
+                  ),
+                ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 92, top: VSpace.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: SizedBox(
-                        width: width,
-                        child: VGlass(
-                          radius: VRadius.xl,
-                          padding: const EdgeInsets.fromLTRB(VSpace.lg, VSpace.md, VSpace.sm, VSpace.sm),
+            ),
+          ],
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 92, top: VSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: SizedBox(
+                width: width,
+                child: VGlass(
+                  radius: VRadius.xl,
+                  padding: const EdgeInsets.fromLTRB(VSpace.lg, VSpace.md, VSpace.sm, VSpace.sm),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(children: [
+                        Expanded(child: Text(widget.modelName, maxLines: 1, overflow: TextOverflow.fade, softWrap: false, style: meta)),
+                        VCircleButton(icon: Icons.close_rounded, size: 30, tooltip: 'Close', onTap: _handleClose),
+                      ]),
+                      Flexible(
+                        child: VFadeScroll(
+                          fade: 22,
+                          padding: const EdgeInsets.fromLTRB(0, VSpace.xs, VSpace.sm, VSpace.md),
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(children: [
-                                Expanded(child: Text(modelName, maxLines: 1, overflow: TextOverflow.fade, softWrap: false, style: meta)),
-                                VCircleButton(icon: Icons.close_rounded, size: 30, tooltip: 'Close', onTap: onClose),
-                              ]),
-                              Flexible(
-                                child: VFadeScroll(
-                                  fade: 22,
-                                  padding: const EdgeInsets.fromLTRB(0, VSpace.xs, VSpace.sm, VSpace.md),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      MdText(message.text, style: body, onCite: cite),
-                                      if (sources.isNotEmpty) ...[
-                                        const SizedBox(height: VSpace.lg),
-                                        Text('Sources', style: body.copyWith(fontWeight: FontWeight.w700, fontSize: 16)),
-                                        const SizedBox(height: VSpace.xs),
-                                        for (var i = 0; i < sources.length; i++)
-                                          VPress(
-                                            onTap: () => onOpenSource(i),
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 5),
-                                              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                                SizedBox(width: 26, child: Text('${i + 1}', style: meta)),
-                                                Expanded(
-                                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                                    Text('${sources[i]['title'] ?? ''}', style: body.copyWith(fontSize: 11, height: 1.35)),
-                                                    Text(_host('${sources[i]['url'] ?? ''}'), style: meta),
-                                                  ]),
-                                                ),
-                                              ]),
-                                            ),
-                                          ),
-                                      ],
-                                    ],
+                              MdText(widget.message.text, style: body, onCite: cite),
+                              if (widget.sources.isNotEmpty) ...[
+                                const SizedBox(height: VSpace.lg),
+                                Text('Sources', style: body.copyWith(fontWeight: FontWeight.w700, fontSize: 16)),
+                                const SizedBox(height: VSpace.xs),
+                                for (var i = 0; i < widget.sources.length; i++)
+                                  VPress(
+                                    onTap: () => widget.onOpenSource(i),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 5),
+                                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        SizedBox(width: 26, child: Text('${i + 1}', style: meta)),
+                                        Expanded(
+                                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                            Text('${widget.sources[i]['title'] ?? ''}', style: body.copyWith(fontSize: 11, height: 1.35)),
+                                            Text(_host('${widget.sources[i]['url'] ?? ''}'), style: meta),
+                                          ]),
+                                        ),
+                                      ]),
+                                    ),
                                   ),
-                                ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: VSpace.xs),
-                    VOrnament(
-                      padding: const EdgeInsets.all(4),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        VCircleButton(
-                          icon: Icons.copy_rounded,
-                          tooltip: 'Copy',
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: _document));
-                            _toast(context, 'Copied');
-                          },
-                        ),
-                        const SizedBox(width: 4),
-                        VCircleButton(
-                          icon: Icons.bookmark_border_rounded,
-                          tooltip: 'Save',
-                          onTap: () async {
-                            final words = message.text.replaceAll(RegExp(r'[#*_`>\[\]\n]'), ' ').trim().split(RegExp(r'\s+')).take(6).join(' ');
-                            final name = await ColliderApi.instance.saveGenerated('$modelName - $words.md', _document, model: modelName);
-                            if (context.mounted) _toast(context, name == null ? 'Not saved' : 'Saved to Files');
-                          },
-                        ),
-                        if (canShareText) ...[
-                          const SizedBox(width: 4),
-                          VCircleButton(icon: Icons.ios_share_rounded, tooltip: 'Share', onTap: () => shareText(_document)),
-                        ],
-                      ]),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
+            const SizedBox(height: VSpace.xs),
+            VOrnament(
+              padding: const EdgeInsets.all(4),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                VCircleButton(
+                  icon: Icons.copy_rounded,
+                  tooltip: 'Copy',
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: _document));
+                    _toast(context, 'Copied');
+                  },
+                ),
+                const SizedBox(width: 4),
+                VCircleButton(
+                  icon: Icons.bookmark_border_rounded,
+                  tooltip: 'Save',
+                  onTap: () async {
+                    final words = widget.message.text.replaceAll(RegExp(r'[#*_`>\[\]\n]'), ' ').trim().split(RegExp(r'\s+')).take(6).join(' ');
+                    final name = await ColliderApi.instance.saveGenerated('${widget.modelName} - $words.md', _document, model: widget.modelName);
+                    if (context.mounted) _toast(context, name == null ? 'Not saved' : 'Saved to Files');
+                  },
+                ),
+                if (canShareText) ...[
+                  const SizedBox(width: 4),
+                  VCircleButton(icon: Icons.ios_share_rounded, tooltip: 'Share', onTap: () => shareText(_document)),
+                ],
+              ]),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
